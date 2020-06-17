@@ -276,7 +276,7 @@ public:
 
 		obj->reflection = t;
 
-		this->refl.insertLink(&this->objs, obj, NULL, NULL);
+		this->refl.insertLink(&this->refl, obj, NULL, NULL);
 		if (this->group) {
 			this->group->objs.insertLink(&this->group->objs, obj, NULL, NULL);
 		}
@@ -301,7 +301,7 @@ public:
 
 		obj->transparent = t;
 
-		this->tras.insertLink(&this->objs, obj, NULL, NULL);
+		this->tras.insertLink(&this->tras, obj, NULL, NULL);
 		if (this->group) {
 			this->group->objs.insertLink(&this->group->objs, obj, NULL, NULL);
 		}

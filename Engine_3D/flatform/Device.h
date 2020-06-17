@@ -161,7 +161,7 @@ struct Device {
 	void RenderMirror(Manager3D & man) {
 		//switch to the reflection camera
 		Cam3D * cur_cam = man.cams.link;
-		Camera3D * cam = man.getCamera(2);
+		Camera3D * cam = man.getCamera(1);
 		if (NULL == cam || NULL == cur_cam) {
 			return;
 		}

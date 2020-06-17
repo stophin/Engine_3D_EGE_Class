@@ -1175,6 +1175,36 @@ VOID Initialize()
 			obj = man.objs.next(&man.objs, obj);
 		} while (obj && obj != man.objs.link);
 	}
+	obj = man.refl.link;
+	if (obj) {
+		do {
+			if (obj->texture) {
+				for (int i = 0; i < MAX_TEXTURE; i++) {
+					if (obj->texture == textureLocalPoolImp.pool[i].texture) {
+						if (texturePoolImp.pool[i].texture != NULL) {
+							obj->texture = texturePoolImp.pool[i].texture;
+						}
+					}
+				}
+			}
+			obj = man.refl.next(&man.refl, obj);
+		} while (obj && obj != man.refl.link);
+	}
+	obj = man.tras.link;
+	if (obj) {
+		do {
+			if (obj->texture) {
+				for (int i = 0; i < MAX_TEXTURE; i++) {
+					if (obj->texture == textureLocalPoolImp.pool[i].texture) {
+						if (texturePoolImp.pool[i].texture != NULL) {
+							obj->texture = texturePoolImp.pool[i].texture;
+						}
+					}
+				}
+			}
+			obj = man.tras.next(&man.tras, obj);
+		} while (obj && obj != man.tras.link);
+	}
 
 	tman.~TextureLocalManager();
 

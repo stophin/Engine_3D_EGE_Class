@@ -95,8 +95,6 @@ object file	reflection	0
 	uv	30	30
 object
 
-break
-
 #object 3ds sphere
 object 3ds	transparent	-1
 	url	3ds/GeoSphere.3DS
