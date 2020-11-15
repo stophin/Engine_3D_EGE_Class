@@ -12,8 +12,9 @@
 #include "../math3d/Texture3D.h"
 #include "../math3d/Texture.h"
 
-#define MAX_OBJ3D_MAX	500//used for all object
-#define MAX_OBJ3D_LINK	60
+#define MAX_OBJ3D_MAX	5000//used for all object
+#define MAX_OBJ3D_START 60
+#define MAX_OBJ3D_LINK	MAX_OBJ3D_START + 1000 //not exceed thread * thread
 #define MAX_OBJ3D_END	6//reserved for normal linklist use
 #define MAX_OBJ3D_THREAD	MAX_OBJ3D_MAX - MAX_OBJ3D_LINK - MAX_OBJ3D_END// the left are for thread
 typedef struct Object3D Object3D;
@@ -24,6 +25,7 @@ struct Object3D {
 
 	/////////////////////////////
 #define OBject3D_Define(T)\
+	void * material; \
 	void * octTree; \
 	VObjMan indice;\
 	VObjMan verts; \
@@ -851,6 +853,8 @@ _PLATFORM Object3D * _Object3D(Object3D * that, VObjPoolImp * poolImp) {
 	\
 	that->octTree = NULL; \
 	\
+	that->material = NULL; \
+	\
 	that->rightBottomFront_O.set(-EP_MAX, -EP_MAX, -EP_MAX, 1);\
 	that->leftTopBack_O.set(EP_MAX, EP_MAX, EP_MAX, 1);
 	/////////////////////////////////////
@@ -1365,7 +1369,7 @@ _PLATFORM Group3DMan * _Group3DMan(Group3DMan * that, int index, Group3DPoolImp 
 }
 
 
-_PLATFORM INT Collision(Vert3D& vo, Vert3D& vd, Obj3D * _obj) {
+_PLATFORM INT Collision(Vert3D& vo, Vert3D& vd, Obj3D * _obj, EFTYPE max) {
 	if (NULL == _obj) {
 		return 0;
 	}
@@ -1401,7 +1405,7 @@ _PLATFORM INT Collision(Vert3D& vo, Vert3D& vd, Obj3D * _obj) {
 		if (cross * _obj->anti < 0) {
 			continue;
 		}
-		EFTYPE trans = Vert3D::GetLineIntersectPointWithTriangle(v0, v1, v2, vo, vd, 10000, p);
+		EFTYPE trans = Vert3D::GetLineIntersectPointWithTriangle(v0, v1, v2, vo, vd, max, p);
 		if (EP_GTZERO(trans)) {
 			intersect = 1;
 			break;

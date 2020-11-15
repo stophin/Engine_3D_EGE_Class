@@ -10,7 +10,9 @@
 #define _PLATFORM inline
 
 #include <math.h>
-
+#include <time.h>
+#include <stdio.h>
+#define _USE_MATH_DEFINES
 
 #define MINGW_COMPLIER
 

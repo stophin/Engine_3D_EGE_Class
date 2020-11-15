@@ -16,6 +16,22 @@ VertsPoolImp vertsPoolImp;
 OctPoolImp octPoolImp;
 Group3DPoolImp group3DPoolImp;
 
+////////////////////////////////////////////////////
+HittablePoolImp hittablePoolImp;
+hittable_list world;
+SpherePoolImp spherePoolImp;
+SphereMan sphereMan;
+camera rtcam;
+LambertianMan lambertianMan;
+LambertianPoolImp lambertianPoolImp;
+MetalMan metalMan;
+MetalPoolImp metalPoolImp;
+DielectricMan dielectricMan;
+DielectricPoolImp dielectricPoolImp;
+BvhNodeMan bvhNodeMan;
+BvhNodePoolImp bvhNodePoolImp;
+////////////////////////////////////////////////////
+
 int DEBUG_MODE = DEBUG_GRADE_2;
 
 INT isresize = -1;
@@ -297,12 +313,14 @@ VOID Initialize()
 
 	man.addLight(9, 100, 300);
 
-	Object3D *_obj = &man.addObject();
-	_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
-		._move(_obj, 0, 100, -200).setColor(_obj, GREEN).setTexture(_obj, tman, 0, 0).setUV(_obj, 0, 0);
-	_obj = &man.addObject();
-	_obj->addVert(_obj, -10, 0, -10).addVert(_obj, 10, 0, -10).addVert(_obj, -10, 0, 10).addVertA(_obj, 10, 0, 10, -1)._rotate(_obj, 0, 0, 180)
-		._scale(_obj, 5, 5, 5)._move(_obj, 250, -40, 250).setColor(_obj, LIGHTGRAY);
+	if (0) {
+		Object3D *_obj = &man.addObject();
+		_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
+			._move(_obj, 0, 100, -200).setColor(_obj, GREEN).setTexture(_obj, tman, 0, 0).setUV(_obj, 0, 0);
+		_obj = &man.addObject();
+		_obj->addVert(_obj, -10, 0, -10).addVert(_obj, 10, 0, -10).addVert(_obj, -10, 0, 10).addVertA(_obj, 10, 0, 10, -1)._rotate(_obj, 0, 0, 180)
+			._scale(_obj, 5, 5, 5)._move(_obj, 250, -40, 250).setColor(_obj, LIGHTGRAY);
+	}
 
 	//从文件配置加载
 	if (1) {
@@ -335,6 +353,48 @@ VOID Initialize()
 						if (!strcmp(command, "env")) {
 							break;
 						}
+						/////////////////////////////////////////////////////////////
+						else if (!strcmp(command, "render_mode")) {
+							if (attrCount > 0) {
+								device.render_mode = atoi(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "samples_per_pixel")) {
+							if (attrCount > 0) {
+								device.samples_per_pixel = atoi(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "max_depth")) {
+							if (attrCount > 0) {
+								device.max_depth = atoi(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "aspect_ratio")) {
+							if (attrCount > 0) {
+								device.aspect_ratio = atof(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "aperture")) {
+							if (attrCount > 0) {
+								device.aperture = atof(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "type")) {
+							if (attrCount > 0) {
+								device.type = atoi(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "cam_type")) {
+							if (attrCount > 0) {
+								device.cam_type = atoi(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "bvh")) {
+							if (attrCount > 0) {
+								device.bvh = atoi(attrs[0]);
+							}
+						}
+						/////////////////////////////////////////////////////////////
 						else if (!strcmp(command, "split")) {
 							device.draw_line = 1;
 						}
@@ -1213,6 +1273,43 @@ VOID Initialize()
 	man.rotateCamera(0.6, -104, 0);
 	//do this after all done
 	man.createOctTree();
+
+	////////////////////////////////////////////////////////////
+	_HittablePoolImp(&hittablePoolImp);
+	_HittableMan(&world.objects, 0, &hittablePoolImp);
+	_SpherePoolImp(&spherePoolImp);
+	_SphereMan(&sphereMan, 0, &spherePoolImp);
+	_LambertianPoolImp(&lambertianPoolImp);
+	_LambertianMan(&lambertianMan, 0, &lambertianPoolImp);
+	_MetalPoolImp(&metalPoolImp);
+	_MetalMan(&metalMan, 0, &metalPoolImp);
+	_DielectricPoolImp(&dielectricPoolImp);
+	_DielectricMan(&dielectricMan, 0, &dielectricPoolImp);
+	_BvhNodePoolImp(&bvhNodePoolImp);
+	_BvhNodeMan(&bvhNodeMan, 0, &bvhNodePoolImp);
+	device.man = &man;
+	device.world = &world;
+	device.sphereMan = &sphereMan;
+	device.rtcam = &rtcam;
+	//device.samples_per_pixel = 10;
+	//device.max_depth = 5;
+	//device.aspect_ratio = 1.5;
+	//device.aperture = 2.0;
+	device.lambertianMan = &lambertianMan;
+	device.metalMan = &metalMan;
+	device.dielectricMan = &dielectricMan;
+	device.bvhNodeMan = &bvhNodeMan;
+	//0: real world 1: scene without material 2: scene with material 3: random scene
+	//device.type = 0;
+	//0: real camera 1:default camere 2;camera wide fov 3;camera narrow fov 
+	//4: camera defocus blur 5: camera defocus blur narrow fov 6: camera defocus blur wide fov
+	//device.cam_type = 0;
+	//you can try 2-0 or 3-5 or 3-6
+	//use bvh
+	//device.bvh = 1;
+	srand(time(NULL));
+	device.init_hittable();
+	////////////////////////////////////////////////////////////
 }
 
 EFTYPE scale = 10.0;

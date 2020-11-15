@@ -4,6 +4,14 @@ env
 	count	2
 	light	2
 	mirror
+	render_mode	1
+	samples_per_pixel	10
+	max_depth	5
+	aspect_ratio	1.5
+	aperture	2.0
+	type	0
+	cam_type	0
+	bvh	1
 env
 camera	1001
 	param 	50	50	50	1000	90	90

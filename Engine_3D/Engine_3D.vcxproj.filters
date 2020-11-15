@@ -111,6 +111,27 @@
     <ClInclude Include="math3d\Texture3D.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="raytracing\hittable.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\sphere.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\hittable_list.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\camere.h">
+      <Filter>头文件\platform</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\material.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\aabb.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracing\bvh.h">
+      <Filter>头文件\raytracing</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

@@ -12,10 +12,19 @@
 typedef struct Vert3D Vert3D;
 struct Vert3D {
 
-	EFTYPE x;
-	EFTYPE y;
-	EFTYPE z;
-	EFTYPE w;
+	union {
+		struct {
+			EFTYPE x;
+			EFTYPE y;
+			EFTYPE z;
+			EFTYPE w;
+		};
+		EFTYPE e[4];
+	};
+
+	_PLATFORM EFTYPE operator[](int i) const {
+		return e[i];
+	}
 
 	INT anti;
 
@@ -24,6 +33,14 @@ struct Vert3D {
 		this->y = 0;
 		this->z = 0;
 		this->w = 1;
+	}
+
+	_PLATFORM Vert3D& set(DWORD color) {
+		this->x = EGEGET_R(color) / 255.999;
+		this->y = EGEGET_G(color) / 255.999;
+		this->z = EGEGET_B(color) / 255.999;
+
+		return *this;
 	}
 
 	_PLATFORM Vert3D& set(const Vert3D& v) {
@@ -78,6 +95,14 @@ struct Vert3D {
 		this->x = y * v.z - z * v.y;
 		this->y = z * v.x - x * v.z;
 		this->z = x * v.y - y * v.x;
+
+		return *this;
+	}
+
+	_PLATFORM Vert3D& operator %(const Vert3D& v) {
+		this->x *= v.x;
+		this->y *= v.y;
+		this->z *= v.z;
 
 		return *this;
 	}
@@ -139,6 +164,15 @@ struct Vert3D {
 		this->y *= s;
 		this->z *= s;
 		this->w *= s;
+
+		return *this;
+	}
+
+	_PLATFORM Vert3D& operator /(EFTYPE s) {
+		this->x /= s;
+		this->y /= s;
+		this->z /= s;
+		this->w /= s;
 
 		return *this;
 	}
@@ -450,6 +484,26 @@ _PLATFORM VObjPoolImp * _VObjPoolImp(VObjPoolImp *that) {
 
 	return that;
 }
+
+#define MAX_VOBJ_MINI	1000
+#define MAP_VOBJ_MINI	GET_MAP_SIZE(MAX_VOBJ_MINI)
+typedef struct VObjMiniPoolImp VObjMiniPoolImp;
+struct VObjMiniPoolImp {
+	VObj pool[MAX_VOBJ_MINI];
+	UMAP map[MAP_VOBJ_MINI];
+
+	VObjPool vobjPool;
+};
+_PLATFORM VObjMiniPoolImp* _VObjMiniPoolImp(VObjMiniPoolImp* that) {
+
+	for (int i = 0; i < MAX_VOBJ_MINI; i++) {
+		_VObj(&that->pool[i], 0, 0, 0);
+	}
+	_VObjPool(&that->vobjPool, that->pool, that->map, MAX_VOBJ_MINI);
+
+	return that;
+}
+
 typedef struct VObjMan VObjMan;
 struct VObjMan{
 	__SUPER(MultiLinkBase, VObjMan, VObj);

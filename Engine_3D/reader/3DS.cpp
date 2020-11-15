@@ -171,7 +171,7 @@ void CLoad3DS::ReadNextChunk(t3DModel *pModel, tChunk *pPreChunk)
 	t3DObject newObject = { 0 };                                        // 用来添加到对象链表
 	tMatInfo newTexture = { 0 };                                // 用来添加到材质链表
 	union {
-		unsigned int version = 0;                                        // 保存文件版本
+		unsigned int version;                                        // 保存文件版本
 		unsigned int _version[5];
 	};
 	int buffer[50000] = { 0 };                                        // 用来跳过不需要的数据

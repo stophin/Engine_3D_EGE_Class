@@ -8,6 +8,12 @@
 #include "../raytracing/Ray.h"
 #include "../scene/OctTree.h"
 
+#include "../raytracing/hittable_list.h"
+#include "../raytracing/sphere.h"
+#include "../raytracing/camere.h"
+#include "../raytracing/material.h"
+#include "../raytracing/bvh.h"
+
 #define MAX_LIGHT	10
 #define MAX_OBJECT	50
 
@@ -44,6 +50,7 @@ struct Device {
 	DWORD **threadImage;
 	INT threadRenderCount = 0;
 	VObj *** threadRender;
+	INT render_mode = 0;//0: ray casting 1:ray tracing
 
 	struct RenderParameters{
 		Manager3D * man;
@@ -56,6 +63,8 @@ struct Device {
 		INT ex;
 		INT ey;
 		INT id;
+		void* objPool;
+		void* vobjPool;
 	};
 
 	EPoint e, s, v, c;
@@ -83,7 +92,7 @@ struct Device {
 		threadImage(NULL),
 		thread_ready(0),
 		thread_ready_r(0){
-		for (int i = 0; i < MAX_LIGHT; i++) {
+		for (INT i = 0; i < MAX_LIGHT; i++) {
 			shade[i] = NULL;
 		}
 	}
@@ -110,7 +119,7 @@ struct Device {
 			tango = NULL;
 		}
 		if (shade) {
-			for (int i = 0; i < light_count; i++) {
+			for (INT i = 0; i < light_count; i++) {
 				if (shade[i]) {
 					delete[] shade[i];
 					shade[i] = NULL;
@@ -143,7 +152,7 @@ struct Device {
 		depth = new EFTYPE[width * height];
 		image = new DWORD[width * height];
 		tango = new DWORD[width * height];
-		for (int i = 0; i < light_count; i++) {
+		for (INT i = 0; i < light_count; i++) {
 			shade[i] = new EFTYPE[width * height];
 		}
 		trans = new DWORD[width * height];
@@ -187,7 +196,7 @@ struct Device {
 					// do not refresh relection surfaces to aviod dead loop
 					temp = man.refl.link;
 					man.refl.link = NULL;
-					int traverseCount = 0;
+					INT traverseCount = 0;
 					do {
 						traverseCount++;
 						//there must be three verts
@@ -207,8 +216,8 @@ struct Device {
 								_depth = deptr;
 								//memset(depth, 0, width * height * sizeof(EFTYPE));
 								//clear reflection depth and drawing
-								for (int i = v->ys; i <= v->ye && i < height; i++) {
-									for (int j = v->xs; j <= v->xe && j < width; j++) {
+								for (INT i = v->ys; i <= v->ye && i < height; i++) {
+									for (INT j = v->xs; j <= v->xe && j < width; j++) {
 										index = i * width + j;
 										_depth[index] = BLACK;
 										_image[index] = BLACK;
@@ -224,14 +233,14 @@ struct Device {
 								Draw_Line(_image, width, height, v1->x0, v1->y0, v->x0, v->y0, WHITE);
 								Draw_Line(_image, width, height, v->x0, v->y0, v0->x0, v0->y0, WHITE);
 
-								for (int i = v->ys; i <= v->ye && i < height; i++) {
+								for (INT i = v->ys; i <= v->ye && i < height; i++) {
 									//little trick^_^
 									line_state = 0;
 									line_l = 0; 
 									line_r = 0;
 									//trick: pre-judge
 									___image = BLACK;
-									for (int j = v->xs; j <= v->xe && j < width; j += 1) {
+									for (INT j = v->xs; j <= v->xe && j < width; j += 1) {
 										__image = &_image[i * width + j];
 										//up pulse
 										if (*__image != BLACK && ___image == BLACK) {
@@ -247,7 +256,7 @@ struct Device {
 										___image = *__image;
 									}
 									EFTYPE view_h = (i - cam->offset_h) / cam->scale_h;
-									for (int j = v->xs; j <= v->xe && j < width; j++) {
+									for (INT j = v->xs; j <= v->xe && j < width; j++) {
 										index = i * width + j;
 										__mirror = &_mirror[index];
 										__image = &_image[index];
@@ -338,13 +347,13 @@ struct Device {
 		cam->M_1.set(cur_cam->M_1);
 
 		EFTYPE * _shade = NULL;
-		for (int i = 0; i < light_count; i++) {
+		for (INT i = 0; i < light_count; i++) {
 			_shade = shade[i];
 			memset(_shade, 0, width * height * sizeof(EFTYPE));
 		}
 
 		Lgt3D * lgt = man.lgts.link;
-		int shadeIndex = 0;
+		INT shadeIndex = 0;
 		if (lgt) {
 			do{
 				if (shadeIndex >= light_count) {
@@ -368,15 +377,15 @@ struct Device {
 					cur_cam->M_1.set(lgt->M);
 					man.refresh((Camera3D*)cur_cam);
 
-					int render_state = 0;
-					int trans_w0 = EP_MAX, trans_h0 = EP_MAX;
-					int trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
+					INT render_state = 0;
+					INT trans_w0 = EP_MAX, trans_h0 = EP_MAX;
+					INT trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
 					do {
 						VObj * v = obj->verts_r.link;
 						// more than 3 verts
 						if (v && obj->verts_r.linkcount >= 3) {
 							VObj *v0 = NULL, *v1 = NULL, *vtemp;
-							int traverseCount = 0;
+							INT traverseCount = 0;
 							do {
 								traverseCount++;
 								//there must be three verts
@@ -396,14 +405,14 @@ struct Device {
 
 											index = 0;
 											xs = v->xs; xe = v->xe; ys = v->ys; ye = v->ye;
-											for (int i = ys; i <= ye && i < height; i++) {
+											for (INT i = ys; i <= ye && i < height; i++) {
 
 												//little trick^_^
 												line_state = 0;
 												line_l = 0, line_r = 0;
 												//trick: pre-judge
 												___image = BLACK;
-												for (int j = xs; j <= xe && j < width; j += 1) {
+												for (INT j = xs; j <= xe && j < width; j += 1) {
 													__image = &_image[i * width + j];
 													//up pulse
 													if (*__image != BLACK && ___image == BLACK) {
@@ -419,7 +428,7 @@ struct Device {
 													___image = *__image;
 												}
 												EFTYPE view_h = (i - cam->offset_h) / cam->scale_h;
-												for (int j = xs; j <= xe && j < width; j++) {
+												for (INT j = xs; j <= xe && j < width; j++) {
 													index = i * width + j;
 													__image = &_image[index];
 													if (j >= line_l && j <= line_r) {
@@ -554,8 +563,8 @@ struct Device {
 			}
 			if (threadRender == NULL) {
 				threadRender = new VObj**[thread_w * thread_h];
-				for (int i = 0; i < thread_w; i++) {
-					for (int j = 0; j < thread_h; j++) {
+				for (INT i = 0; i < thread_w; i++) {
+					for (INT j = 0; j < thread_h; j++) {
 						threadRender[j * thread_w + i] = new VObj*[3];
 						threadRender[j * thread_w + i][0] = NULL;
 						threadRender[j * thread_w + i][1] = NULL;
@@ -566,12 +575,12 @@ struct Device {
 			threadImageCount = thread_count_h * thread_count;
 			if (threadImage == NULL) {
 				threadImage = new DWORD*[threadImageCount];
-				for (int i = 0; i < threadImageCount; i++) {
+				for (INT i = 0; i < threadImageCount; i++) {
 					threadImage[i] = new DWORD[width * height];
 				}
 			}
-			for (int i = 0; i < thread_count_h; i++) {
-				for (int j = 0; j < thread_count; j++) {
+			for (INT i = 0; i < thread_count_h; i++) {
+				for (INT j = 0; j < thread_count; j++) {
 					INT index = i * thread_count + j;
 
 					param_r[index].man = &man;
@@ -588,8 +597,8 @@ struct Device {
 			thread_ready_r = 1;
 		}
 		else {
-			for (int i = 0; i < thread_count_h; i++) {
-				for (int j = 0; j < thread_count; j++) {
+			for (INT i = 0; i < thread_count_h; i++) {
+				for (INT j = 0; j < thread_count; j++) {
 					INT index = i * thread_count + j;
 					param_r[index].man = &man;
 					param_r[index].device = this;
@@ -617,8 +626,8 @@ struct Device {
 		if (!thread_pool_r || !param_r || !thread_status_r) {
 			return;
 		}
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				INT index = i * thread_count + j;
 				//将这些参数设置为NULL以结束线程
 				param_r[index].man = NULL;
@@ -627,15 +636,15 @@ struct Device {
 			}
 		}
 		//等待线程退出  
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				WaitForSingleObject(thread_pool_r[i * thread_count + j], INFINITE);
 			}
 		}
 
 		//关闭句柄，释放资源  
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				CloseHandle(thread_pool_r[i * thread_count + j]);
 			}
 		}
@@ -652,15 +661,15 @@ struct Device {
 			delete[] param_r;
 		}
 		if (threadRender) {
-			for (int i = 0; i < thread_w; i++) {
-				for (int j = 0; j < thread_h; j++) {
+			for (INT i = 0; i < thread_w; i++) {
+				for (INT j = 0; j < thread_h; j++) {
 					delete[] threadRender[j * thread_w + i];
 				}
 			}
 			delete[] threadRender;
 		}
 		if (threadImage) {
-			for (int i = 0; i < threadImageCount; i++) {
+			for (INT i = 0; i < threadImageCount; i++) {
 				delete[] threadImage[i];
 			}
 			delete[] threadImage;
@@ -677,8 +686,8 @@ struct Device {
 		}
 		//等待线程退出
 		INT _thread_all_done = 1;
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				INT index = i * thread_count + j;
 				if (1 == thread_status_r[index]) {
 					_thread_all_done = 0;
@@ -701,8 +710,8 @@ struct Device {
 		INT _thread_all_done;
 		while (1) {
 			_thread_all_done = 1;
-			for (int i = 0; i < device->thread_count_h; i++) {
-				for (int j = 0; j < device->thread_count; j++) {
+			for (INT i = 0; i < device->thread_count_h; i++) {
+				for (INT j = 0; j < device->thread_count; j++) {
 					INT index = i * device->thread_count + j;
 					if (1 == device->thread_status_r[index]) {
 						_thread_all_done = 0;
@@ -749,24 +758,24 @@ struct Device {
 		INT othi = 0;
 		INT othj = 0;
 		if (obj) {
-			int render_state = 0;
-			int trans_w0 = EP_MAX, trans_h0 = EP_MAX;
-			int trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
+			INT render_state = 0;
+			INT trans_w0 = EP_MAX, trans_h0 = EP_MAX;
+			INT trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
 			VObj * v, *v0, *v1, *vtemp;
 			EPoint l1, l0, l;
 
 			EFTYPE z;
 			INT index = 0, _index = 0;
 			INT xs, xe, ys, ye;
-			int i, j;
-			int res;
+			INT i, j;
+			INT res;
 			Camera3D* cam = NULL;
 			Lgt3D * lgt;
 			EFTYPE zz;
 			EFTYPE f, t, transparent, _i, _j;
 			INT line_state = 0;
 			INT line_l = 0, line_r = 0;
-			int inrange;
+			INT inrange;
 			do {
 				if (threadRenderCount >= thread_w * thread_h) {
 					break;
@@ -775,7 +784,7 @@ struct Device {
 				// more than 3 verts
 				if (v && obj->verts_r.linkcount >= 3) {
 					v0 = NULL; v1 = NULL;
-					int traverseCount = 0;
+					INT traverseCount = 0;
 					do {
 						traverseCount++;
 						//there must be three verts
@@ -908,24 +917,24 @@ struct Device {
 
 		INT renderIndexX = 0;
 		INT renderIndexY = 0;
-			int render_state = 0;
-			int trans_w0 = EP_MAX, trans_h0 = EP_MAX;
-			int trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
+			INT render_state = 0;
+			INT trans_w0 = EP_MAX, trans_h0 = EP_MAX;
+			INT trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
 			VObj * v = NULL, *v0 = NULL, *v1 = NULL, *vtemp;
 			EPoint l1, l0, l;
 
 			EFTYPE z;
 			INT index = 0, _index = 0;
 			INT xs, xe, ys, ye;
-			int i, j;
-			int res;
+			INT i, j;
+			INT res;
 			Camera3D* cam = NULL;
 			Lgt3D * lgt;
 			EFTYPE zz;
 			EFTYPE f, t, transparent, _i, _j;
 			INT line_state = 0;
 			INT line_l = 0, line_r = 0;
-			int inrange;
+			INT inrange;
 
 			if (id >= device->threadImageCount) {
 				return;
@@ -1123,7 +1132,7 @@ struct Device {
 
 									//step5: render shadow map
 									lgt = man.lgts.link;
-									int shadeIndex = 0;
+									INT shadeIndex = 0;
 									EFTYPE * _shade = NULL;
 
 									if (lgt) {
@@ -1207,30 +1216,30 @@ struct Device {
 
 		Obj3D * obj = man.objs.link;
 		if (obj) {
-			int render_state = 0;
-			int trans_w0 = EP_MAX, trans_h0 = EP_MAX;
-			int trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
+			INT render_state = 0;
+			INT trans_w0 = EP_MAX, trans_h0 = EP_MAX;
+			INT trans_w1 = -EP_MAX, trans_h1 = -EP_MAX;
 			VObj * v, *v0, *v1, *vtemp;
 			EPoint l1, l0, l;
 
 			EFTYPE z;
 			INT index = 0, _index = 0;
 			INT xs, xe, ys, ye;
-			int i, j;
-			int res;
+			INT i, j;
+			INT res;
 			Camera3D* cam = NULL;
 			Lgt3D * lgt;
 			EFTYPE zz;
 			EFTYPE f, t, transparent, _i, _j;
 			INT line_state = 0;
 			INT line_l = 0, line_r = 0;
-			int inrange;
+			INT inrange;
 			do {
 				v = obj->verts_r.link;
 				// more than 3 verts
 				if (v && obj->verts_r.linkcount >= 3) {
 					v0 = NULL; v1 = NULL;
-					int traverseCount = 0;
+					INT traverseCount = 0;
 					do {
 						traverseCount++;
 						//there must be three verts
@@ -1421,7 +1430,7 @@ struct Device {
 
 													//step5: render shadow map
 													lgt = man.lgts.link;
-													int shadeIndex = 0;
+													INT shadeIndex = 0;
 													EFTYPE * _shade = NULL;
 
 													if (lgt) {
@@ -1566,7 +1575,12 @@ struct Device {
 	void RenderRayTracing_SingleThread(Manager3D& man) {
 		extern VertsPoolImp vertsPoolImp;
 		VertsPoolImp * pools = &vertsPoolImp;
-		RenderRayTracingSub(man, 0, 0, width, height, 0, NULL, this, pools);
+		if (render_mode == 0) {
+			RenderRayCastingSub(man, 0, 0, width, height, 0, NULL, this, pools);
+		}
+		else {
+			RenderRayTracingSub(man, 0, 0, width, height, 0, NULL, this, pools);
+		}
 	}
 
 	void SetRect(RenderParameters& p, INT sx, INT sy, INT ex, INT ey) {
@@ -1580,6 +1594,8 @@ struct Device {
 	HANDLE hMutex;
 	RenderParameters * param = NULL;
 	void * pool = NULL;
+	void* vobjPool = NULL;
+	void* objPool = NULL;
 	INT thread_ready;
 	INT * thread_status = NULL;
 	INT thread_all_done;
@@ -1588,8 +1604,8 @@ struct Device {
 		DWORD * _tango = EP_GetImageBuffer();
 		INT dx = width / (thread_count_h);
 		INT dy = height / (thread_count);
-		for (int i = 0; i < height; i++) {
-			for (int j = 0; j < width; j++) {
+		for (INT i = 0; i < height; i++) {
+			for (INT j = 0; j < width; j++) {
 				if (j % dx == 0 || i % dy == 0) {
 					_tango[j + i * width] = RED;
 				}
@@ -1619,8 +1635,14 @@ struct Device {
 				//pool = new VertsPoolImp[thread_count * thread_count];
 				pool = malloc(sizeof(VertsPoolImp) * thread_count * thread_count);
 			}
-			for (int i = 0; i < thread_count_h; i++) {
-				for (int j = 0; j < thread_count; j++) {
+			if (vobjPool == NULL) {
+				vobjPool = malloc(sizeof(VObjMiniPoolImp) * thread_count * thread_count);
+			}
+			if (objPool == NULL) {
+				objPool = malloc(sizeof(ObjPoolImp) * thread_count * thread_count);
+			}
+			for (INT i = 0; i < thread_count_h; i++) {
+				for (INT j = 0; j < thread_count; j++) {
 					INT index = i * thread_count + j;
 
 					param[index].man = &man;
@@ -1630,6 +1652,8 @@ struct Device {
 					SetRect(param[index], dx * i, dy * j, dx * i + dx, dy * j + dy);
 
 					param[index].pool = pool;
+					param[index].objPool = objPool;
+					param[index].vobjPool = vobjPool;
 
 					thread_pool[index] = CreateThread(NULL, 0, RenderThreadProc, &param[index], 0, NULL);
 					param[index].hThread = thread_pool[index];
@@ -1639,8 +1663,8 @@ struct Device {
 			thread_ready = 1;
 		}
 		else {
-			for (int i = 0; i < thread_count_h; i++) {
-				for (int j = 0; j < thread_count; j++) {
+			for (INT i = 0; i < thread_count_h; i++) {
+				for (INT j = 0; j < thread_count; j++) {
 					INT index = i * thread_count + j;
 					param[index].man = &man;
 					param[index].device = this;
@@ -1666,8 +1690,8 @@ struct Device {
 		if (!thread_pool || !param || !thread_status) {
 			return;
 		}
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				INT index = i * thread_count + j;
 				//将这些参数设置为NULL以结束线程
 				param[index].man = NULL;
@@ -1676,15 +1700,15 @@ struct Device {
 			}
 		}
 		//等待线程退出  
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				WaitForSingleObject(thread_pool[i * thread_count + j], INFINITE);
 			}
 		}
 
 		//关闭句柄，释放资源  
-		for (int i = 0; i < thread_count_h; i++) {
-			for (int j = 0; j < thread_count; j++) {
+		for (INT i = 0; i < thread_count_h; i++) {
+			for (INT j = 0; j < thread_count; j++) {
 				CloseHandle(thread_pool[i * thread_count + j]);
 			}
 		}
@@ -1703,6 +1727,12 @@ struct Device {
 		if (pool) {
 			delete[] pool;
 		}
+		if (objPool) {
+			delete[] objPool;
+		}
+		if (vobjPool) {
+			delete[] vobjPool;
+		}
 	}
 	static DWORD WINAPI RenderThreadMain(LPVOID lpThreadParameter) {
 		Device * device = (Device*)lpThreadParameter;
@@ -1714,8 +1744,8 @@ struct Device {
 		INT _thread_all_done;
 		while (1) {
 			_thread_all_done = 1;
-			for (int i = 0; i < device->thread_count_h; i++) {
-				for (int j = 0; j < device->thread_count; j++) {
+			for (INT i = 0; i < device->thread_count_h; i++) {
+				for (INT j = 0; j < device->thread_count; j++) {
 					INT index = i * device->thread_count + j;
 					if (1 == device->thread_status[index]) {
 						_thread_all_done = 0;
@@ -1742,7 +1772,12 @@ struct Device {
 			if (NULL == pthread->man) {
 				break;
 			}
-			RenderRayTracingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool);
+			if (pthread->device->render_mode == 0) {
+				RenderRayCastingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool, pthread->objPool, pthread->vobjPool);
+			}
+			else {
+				RenderRayTracingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool, pthread->objPool, pthread->vobjPool);
+			}
 			pthread->device->thread_status[pthread->id] = 0;
 			SuspendThread(pthread->hThread);
 		}
@@ -1753,9 +1788,9 @@ struct Device {
 #define RAYTRACING_MUTEX(x) \
 	if (hMutex) {WaitForSingleObject(hMutex, 1000);} ##x\
 	if (hMutex) { ReleaseMutex(hMutex); }
-	
-	//ray tracing
-	static void RenderRayTracingSub(Manager3D & man, INT sx, INT sy, INT ex, INT ey, INT id, HANDLE hMutex, Device* device = NULL, void * pools = NULL) {
+
+	//ray casting
+	static void RenderRayCastingSub(Manager3D & man, INT sx, INT sy, INT ex, INT ey, INT id, HANDLE hMutex, Device* device = NULL, void * pools = NULL, void * objPool = NULL, void * vobjPool = NULL) {
 		if (NULL == device) {
 			return;
 		}
@@ -1838,7 +1873,7 @@ struct Device {
 					// when the ray is reflection or refraction
 					// use the objects around instead of all the objects
 
-					if (0 && 1 == ray.type || 2 == ray.type) {
+					if (0 && (1 == ray.type || 2 == ray.type)) {
 						if (!ray.obj) {
 							ray.obj = ray.obj;
 						}
@@ -1856,13 +1891,14 @@ struct Device {
 						int render_state = 0;
 						VObj * v, *v0, *v1, *vtemp;
 
+						EFTYPE trans_last = 1000;
 						// for each triangle
 						do {
 							//object aabb intersection
 							INT intersection = 1;
 							if (&man.objs == olink) {
 								//intersection = man.octTree.Collision(&man.octTree, man.octTree.link, ray.original, ray.direction, (Camera3D*)cam, obj);
-								intersection = Collision(ray.original, ray.direction, obj);
+								intersection = Collision(ray.original, ray.direction, obj, trans_last);
 							}
 							if (intersection) {
 
@@ -1879,7 +1915,6 @@ struct Device {
 								// more than 3 verts
 								if (v && link->linkcount >= 3) {
 									v0 = NULL; v1 = NULL;
-									EFTYPE trans_last = 1000;
 									int traverseCount = 0;
 									do {
 										traverseCount++;
@@ -2144,13 +2179,14 @@ struct Device {
 										int render_state = 0;
 										VObj * v, *v0, *v1, *vtemp;
 
+										EFTYPE trans_last = 1000;
 										// for each triangle
 										do {
 											//object aabb intersection
 											INT intersection = 1;
 											if (&man.objs == olink) {
 												//intersection = man.octTree.Collision(&man.octTree, man.octTree.link, ray.original, ray.direction, (Camera3D*)cam, obj);
-												intersection = Collision(ray.original, ray.direction, obj);
+												intersection = Collision(ray.original, ray.direction, obj, trans_last);
 											}
 											if (intersection) {
 
@@ -2167,7 +2203,6 @@ struct Device {
 												// more than 3 verts
 												if (v && link->linkcount >= 3) {
 													v0 = NULL; v1 = NULL;
-													EFTYPE trans_last = 1000;
 													int traverseCount = 0;
 													do {
 														traverseCount++;
@@ -2183,6 +2218,7 @@ struct Device {
 																trans = Vert3D::GetLineIntersectPointWithTriangle(v->v_c, v0->v_c, v1->v_c, ray.original, ray.direction, trans_last, p);
 																//trans is greater than zero, and less than last trans
 																if (EP_GTZERO(trans)) {
+																	trans_last = trans;
 																	*__image = Light3D_multi(*__image, ray.f / 5);
 
 																	//caustic affect on refraction
@@ -2461,6 +2497,898 @@ struct Device {
 			}
 		}
 	}
+	
+	//ray tracing
+	static void RenderRayTracingSub(Manager3D & man, INT sx, INT sy, INT ex, INT ey, INT id, HANDLE hMutex, Device* device = NULL, void * pools = NULL, void * objPool = NULL, void * vobjPool = NULL) {
+		if (NULL == device) {
+			return;
+		}
+		if (ex < sx) return;
+		if (ey < sy) return;
+		Cam3D * cam = man.cams.link;
+		if (NULL == cam) {
+			return;
+		}
+
+		Lgt3D * lgt;
+		EFTYPE f;
+		Vert3D n0, n1, n2, n3, p;
+		Vert3D _n0, _n1, _n2, _n3;
+		EPoint l1, l0, l;
+		EFTYPE z;
+		Ray ray;
+		INT index;
+		EFTYPE _i, _j;
+		INT _index;
+		DWORD * _raytracing;
+		EFTYPE trans;
+		VertsPoolImp * pool = &((VertsPoolImp*)pools)[id];
+		_VertsPoolImp(pool);
+		//VertsMan raytracing_verts(pool, 0);
+		//VertsMan raytracing_verts_accumulated(pool, 1);
+		VertsMan raytracing_verts;
+		_VertsMan(&raytracing_verts, 0, pool);
+		VertsMan raytracing_verts_accumulated;
+		_VertsMan(&raytracing_verts_accumulated, 1, pool);
+
+		VObjMan * link = NULL;
+		ObjMan * olink;
+		//MultiLinkList<Obj3D> octs(MAX_OBJ3D_LINK + 1 + id);
+		ObjMan octs;
+		_VObjMiniPoolImp((VObjMiniPoolImp*)vobjPool);
+		_ObjPoolImp((ObjPoolImp*)objPool, (VObjPoolImp*)vobjPool);
+		_ObjMan(&octs, MAX_OBJ3D_START + 1 +id, (ObjPoolImp*)objPool, (VObjPoolImp*)vobjPool);
+
+		DWORD * __image;
+		//reflection times
+		INT count, shadow_count;
+		//for each pixel in width * height's screen
+		for (INT y = sy; y < ey; y++) {
+			for (INT x = sx; x < ex; x++) {
+				//Orthographic
+				if (cam->type == 1) {
+					//get original vert from this pixel
+					n0.set((x - cam->offset_w) / cam->scale_w, (y - cam->offset_h) / cam->scale_h, 0, 1);
+					//get direction vert
+					n1.set(cam->lookat).negative();
+					n1.normalize().negative();
+					//set ray
+					ray.set(n0, n1);
+					//set ray type
+					ray.type = 0;
+				}
+				//Oblique
+				else if (cam->type == 2) {
+					//get original vert from this pixel
+					n0.set(0, 0, 0, 1);
+					//get direction vert
+					n2.set((x - cam->offset_w) / cam->scale_w, (y - cam->offset_h) / cam->scale_h, 0, 1);
+					cam->anti_normalize(cam, n2, cam->znear);
+					//n0.set(n2);
+					n1.set(cam->lookat) * cam->znear;
+					n1 + n2;
+					n1.w = 1;
+					n1.normalize().negative();
+					//set ray
+					ray.set(n0, n1);
+					//set ray type
+					ray.type = 0;
+				}
+				index = y * device->width + x;
+				_raytracing = &device->raytracing[index];
+
+
+				INT i = x;
+				INT j = y;
+				const INT image_width = device->width;
+				const INT image_height = device->height;
+				DWORD color;
+				Vert3D cur_color;
+				Vert3D pixel_color;
+				/////////////////////////////////////////////////////////////////////////
+				//color = device->ray_color_1(i, j, image_width, image_height);
+				//device->ray_color_2(ray, cur_color);
+				//device->ray_color_3(ray, cur_color);
+				//device->ray_color_4(ray, cur_color);
+				/*
+				device->ray_color_5(ray, cur_color);
+				color = device->write_color_1(cur_color);
+				*/
+				pixel_color.set(0, 0, 0);
+				for (int s = 0; s < device->samples_per_pixel; s++) {
+					auto u = (i + random_double()) / (image_width - 1);
+					auto v = (j + random_double()) / (image_height - 1);
+
+
+					//Orthographic
+					if (cam->type == 1) {
+						//get original vert from this pixel
+						n0.set((x + u - cam->offset_w) / cam->scale_w, (y + v- cam->offset_h) / cam->scale_h, 0, 1);
+						//get direction vert
+						n1.set(cam->lookat).negative();
+						n1.normalize().negative();
+						//set ray
+						ray.set(n0, n1);
+						//set ray type
+						ray.type = 0;
+					}
+					//Oblique
+					else if (cam->type == 2) {
+						//get original vert from this pixel
+						n0.set(0, 0, 0, 1);
+						//get direction vert
+						n2.set((x + u - cam->offset_w) / cam->scale_w, (y + v - cam->offset_h) / cam->scale_h, 0, 1);
+						cam->anti_normalize(cam, n2, cam->znear);
+						//n0.set(n2);
+						n1.set(cam->lookat) * cam->znear;
+						n1 + n2;
+						n1.w = 1;
+						n1.normalize().negative();
+						//set ray
+						ray.set(n0, n1);
+						//set ray type
+						ray.type = 0;
+					}
+
+					if (device->cam_type > 0) {
+						device->rtcam->get_ray(ray, u, v);
+					}
+					device->ray_color(ray, cur_color, device->max_depth, &octs);
+					pixel_color + cur_color;
+				}
+				color = device->write_color(pixel_color, device->samples_per_pixel);
+				/////////////////////////////////////////////////////////////////////////
+
+
+				*_raytracing = color;
+			}
+		}
+	}
+	/////////////////////////////////////////////////////////////////////////////////////////////
+	hittable_list * world;
+	SphereMan * sphereMan;
+	LambertianMan * lambertianMan;
+	MetalMan * metalMan;
+	DielectricMan * dielectricMan;
+	BvhNodeMan * bvhNodeMan;
+	Manager3D* man;
+	camera * rtcam;
+	int samples_per_pixel = 10;
+	int max_depth = 5;
+	int type = 0;
+	int cam_type = 0;
+	int bvh = 1;
+	double aspect_ratio = 1.5;
+	double aperture = 2.0;
+	void init_hittable() {
+		if (cam_type == 2) {
+			Vert3D v0, v1, v2;
+			v0.set(-2, 2, 1);
+			v1.set(0, 0, -1);
+			v2.set(v0) - v1;
+			auto dist_to_focus = sqrt(v2 ^ v2);
+			v2.set(0, 1, 0);
+			rtcam->set(v0, v1, v2, 90, aspect_ratio);
+		}
+		else if (cam_type == 3) {
+			Vert3D v0, v1, v2;
+			v0.set(-2, 2, 1);
+			v1.set(0, 0, -1);
+			v2.set(v0) - v1;
+			auto dist_to_focus = sqrt(v2 ^ v2);
+			v2.set(0, 1, 0);
+			rtcam->set(v0, v1, v2, 20, aspect_ratio);
+		}
+		else if (cam_type == 4) {
+			Vert3D v0, v1, v2;
+			v0.set(3, 3, 2);
+			v1.set(0, 0, -1);
+			v2.set(v0) - v1;
+			auto dist_to_focus = sqrt(v2 ^ v2);
+			v2.set(0, 1, 0);
+			rtcam->set(v0, v1, v2, 20, aspect_ratio, aperture, dist_to_focus);
+		}
+		else if (cam_type == 5) {
+			Vert3D v0, v1, v2;
+			v0.set(13, 2, 3);
+			v1.set(0, 0, 0);
+			v2.set(v0) - v1;
+			auto dist_to_focus = 10.0;
+			v2.set(0, 1, 0);
+			aperture = 0.1;
+			rtcam->set(v0, v1, v2, 20, aspect_ratio, aperture, dist_to_focus);
+		}
+		else if (cam_type == 6) {
+			Vert3D v0, v1, v2;
+			v0.set(13, 2, 3);
+			v1.set(0, 0, 0);
+			v2.set(v0) - v1;
+			auto dist_to_focus = 10.0;
+			v2.set(0, 1, 0);
+			aperture = 0.1;
+			rtcam->set(v0, v1, v2, 90, aspect_ratio, aperture, dist_to_focus);
+		}
+		if (type == 1) {
+			Sphere * sphere;
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, -100.5, -1, 100);
+			world->add(&sphere->obj);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, 0, -1, 0.5);
+			world->add(&sphere->obj);
+		}
+		else if (type == 2) {
+			Lambertian * material_ground = lambertianMan->lambertianPool->get(lambertianMan->lambertianPool);
+			material_ground->obj.set(0.8, 0.8, 0);
+			Dielectric * material_center = dielectricMan->dielectricPool->get(dielectricMan->dielectricPool);
+			material_center->obj.set(1.5);
+			Metal * material_left = metalMan->metalPool->get(metalMan->metalPool);
+			material_left->obj.set(0.1, 0.2, 0.5, 0.3);
+			Metal * material_right = metalMan->metalPool->get(metalMan->metalPool);
+			material_right->obj.set(0.8, 0.6, 0.2, 0.1);
+
+			Sphere * sphere;
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, -100.5, -1, 100);
+			sphere->obj.set_material(&material_ground->obj);
+			world->add(&sphere->obj);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, 0, -1, 0.5);
+			sphere->obj.set_material(&material_left->obj);
+			world->add(&sphere->obj);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(-1, 0, -1, 0.5);
+			sphere->obj.set_material(&material_center->obj);
+			world->add(&sphere->obj);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(1, 0, -1, 0.5);
+			sphere->obj.set_material(&material_right->obj);
+			world->add(&sphere->obj);
+
+		}
+		else if (type == 3) {
+			Lambertian * ground_material = lambertianMan->lambertianPool->get(lambertianMan->lambertianPool);
+			ground_material->obj.set(0.5, 0.5, 0.5);
+
+			Sphere * sphere;
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, -1000, 0, 1000);
+			sphere->obj.set_material(&ground_material->obj);
+			world->add(&sphere->obj);
+
+			Vert3D center, v0, v1;
+			Vert3D albedo;
+			for (int a = -11; a < 11; a++) {
+				for (int b = -11; b < 11; b++) {
+					auto choose_mat = random_double();
+					center.set(a + 0.9*random_double(), 0.2, b + 0.9*random_double());
+					v1.set(4, 0.2, 0);
+					v0.set(center) - v1;
+
+					if (sqrt(v0 ^ v0) > 0.9) {
+						if (choose_mat < 0.8) {
+							// diffuse
+							albedo.set(random_double(), random_double(), random_double());
+
+							Lambertian * sphere_material = lambertianMan->lambertianPool->get(lambertianMan->lambertianPool);
+							sphere_material->obj.set(albedo);
+
+							sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+							sphere->obj.set(center, 0.2);
+							sphere->obj.set_material(&sphere_material->obj);
+							world->add(&sphere->obj);
+						}
+						else if (choose_mat < 0.95) {
+							// metal
+							albedo.set(random_double(0.5, 1), random_double(0.5, 1), random_double(0.5, 1));
+							auto fuzz = random_double(0, 0.5);
+
+							Metal * sphere_material = metalMan->metalPool->get(metalMan->metalPool);
+							sphere_material->obj.set(albedo, 0.3);
+
+							sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+							sphere->obj.set(center, 0.2);
+							sphere->obj.set_material(&sphere_material->obj);
+							world->add(&sphere->obj);
+						}
+						else {
+							// glass
+							Dielectric * sphere_material = dielectricMan->dielectricPool->get(dielectricMan->dielectricPool);
+							sphere_material->obj.set(1.5);
+
+							sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+							sphere->obj.set(center, 0.2);
+							sphere->obj.set_material(&sphere_material->obj);
+							world->add(&sphere->obj);
+						}
+					}
+				}
+			}
+
+			Dielectric * material1 = dielectricMan->dielectricPool->get(dielectricMan->dielectricPool);
+			material1->obj.set(1.5);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(0, 1, 0, 1.0);
+			sphere->obj.set_material(&material1->obj);
+			world->add(&sphere->obj);
+
+			Lambertian * material2 = lambertianMan->lambertianPool->get(lambertianMan->lambertianPool);
+			material2->obj.set(0.4, 0.2, 0.1);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(-4, 1, 0, 1.0);
+			sphere->obj.set_material(&material2->obj);
+			world->add(&sphere->obj);
+
+
+			Metal * material3 = metalMan->metalPool->get(metalMan->metalPool);
+			material3->obj.set(0.7, 0.6, 0.5, 0.0);
+
+			sphere = sphereMan->spherePool->get(sphereMan->spherePool);
+			sphere->obj.set(4, 1, 0, 1.0);
+			sphere->obj.set_material(&material3->obj);
+			world->add(&sphere->obj);
+		}
+		else {
+			Lambertian * material_labertian = lambertianMan->lambertianPool->get(lambertianMan->lambertianPool);
+			material_labertian->obj.set(0.8, 0.8, 0);
+			Dielectric * material_dielectric = dielectricMan->dielectricPool->get(dielectricMan->dielectricPool);
+			material_dielectric->obj.set(1.5);
+			Metal * material_metal = metalMan->metalPool->get(metalMan->metalPool);
+			material_metal->obj.set(0.8, 0.6, 0.2, 0.0);
+
+			//遍历物体，设置material
+			Obj3D * obj = man->objs.link;
+			if (obj) {
+				do {
+					obj->material = &material_labertian->obj;
+
+					obj = man->objs.next(&man->objs, obj);
+				} while (obj && obj != man->objs.link);
+			}
+			obj = man->refl.link;
+			if (obj) {
+				do {
+					obj->material = &material_metal->obj;
+
+					obj = man->refl.next(&man->refl, obj);
+				} while (obj && obj != man->refl.link);
+			}
+			obj = man->tras.link;
+			if (obj) {
+				do {
+					obj->material = &material_dielectric->obj;
+
+					obj = man->tras.next(&man->tras, obj);
+				} while (obj && obj != man->tras.link);
+			}
+		}
+		if (type > 0) {
+			if (bvh > 0) {
+				BvhNode *bvhNode = bvhNodeMan->bvh_nodePool->get(bvhNodeMan->bvh_nodePool);
+				_BvhNode(bvhNode, NULL);
+				set_bvh(&bvhNode->obj, bvhNodeMan, *world, 0.0, 1.0);
+				world->objects.clearLink(&world->objects);
+				Hittable * hittable = world->objects.hittablePool->get(world->objects.hittablePool);
+				hittable->obj = &bvhNode->obj;
+				world->objects.insertLink(&world->objects, hittable, NULL, NULL);
+			}
+		}
+	}
+	bool test_hit(Ray& ray, double t_min, double t_max, hit_record& rec, ObjMan* octs) {
+		rec.use_color = FALSE;
+		if (type > 0) {
+			return world->hit(ray, 0.001, INT_MAX, rec);
+		}
+		bool hit_anything = FALSE;
+
+		Cam3D * cam = man->cams.link;
+		if (NULL == cam) {
+			return hit_anything;
+		}
+		Lgt3D * lgt;
+		EFTYPE f;
+		Vert3D n0, n1, n2, n3, p;
+		Vert3D _n0, _n1, _n2, _n3;
+		EPoint l1, l0, l;
+		EFTYPE trans;
+
+		VObjMan * link = NULL;
+		ObjMan * olink;
+
+		struct Param {
+			Obj3D* obj;
+			EFTYPE t;
+			VObj * v, *v0, *v1;
+			INT render_state;
+		} param;
+
+		Verts _verts;
+		Verts * verts = &_verts;
+		// when the ray is reflection or refraction
+		// use the objects around instead of all the objects
+
+		if (0 && (1 == ray.type || 2 == ray.type)) {
+			if (!ray.obj) {
+				ray.obj = ray.obj;
+			}
+			olink = octs;
+			//olink = &man->octs;
+			olink->clearLink(olink);
+			man->octTree.CollisionA(&man->octTree, man->octTree.link, (Obj3D*)ray.obj, olink);
+		}
+		else {
+			olink = &man->objs;
+		}
+
+		Obj3D * obj = olink->link;
+		if (obj) {
+			int render_state = 0;
+			VObj * v, *v0, *v1, *vtemp;
+
+			EFTYPE trans_last = 1000;
+			// for each triangle
+			do {
+				//object aabb intersection
+				INT intersection = 1;
+				if (&man->objs == olink) {
+					//intersection = man->octTree.Collision(&man->octTree, man->octTree.link, ray.original, ray.direction, (Camera3D*)cam, obj);
+					intersection = Collision(ray.original, ray.direction, obj, trans_last);
+				}
+				if (intersection) {
+
+					// when the ray is reflection
+					// then use all the verts instead 
+					// of the verts after frustrum culling
+					if (1 == ray.type) {
+						link = &obj->verts;
+					}
+					else {
+						link = &obj->verts_r;
+					}
+					v = link->link;
+					// more than 3 verts
+					if (v && link->linkcount >= 3) {
+						v0 = NULL; v1 = NULL;
+						int traverseCount = 0;
+						do {
+							traverseCount++;
+							//there must be three verts
+							if (v0 && v1) {
+								// back face culling
+								// when the ray is reflection or shadow testing
+								// then do not need back face culling
+								if (v->backface > 0 || 1 == ray.type || (3 == ray.type && obj->backfaceculling == 0))
+								{
+									//NOTE: ray tracing is in camera coordinate
+									//get intersect point
+									trans = Vert3D::GetLineIntersectPointWithTriangle(v->v_c, v0->v_c, v1->v_c, ray.original, ray.direction, trans_last, p);
+									//trans is greater than zero, and less than last trans
+									if (EP_GTZERO(trans)) {
+										//RAYTRACING_MUTEX(Verts * verts = new Verts(););
+										if (verts) {
+											trans_last = trans;
+
+											param.obj = obj;
+											param.v = v;
+											param.v0 = v0;
+											param.v1 = v1;
+											param.t = trans;
+											param.render_state = render_state;
+											hit_anything = TRUE;
+
+											break;
+										}
+										//when the ray is reflection,
+										//there will be one or two hit point
+										//in other case, because of using backface cull,
+										//there will be only one hit point
+										if (!(1 == ray.type)) {
+											break;
+										}
+									}
+								}
+
+								if (obj->vertex_type == 1) {
+									v0 = NULL;
+									v1 = NULL;
+								}
+								else if (obj->vertex_type == 2) {
+									if ((traverseCount + 1) % 2 == 0) {
+										v0 = v;
+										//this->v1 = this->v1;
+									}
+									else {
+										v0 = v1;
+										v1 = v;
+									}
+								}
+								else {
+									v0 = v1;
+									v1 = v;
+								}
+							}
+							else if (v0 == NULL) {
+								v0 = v;
+							}
+							else if (v1 == NULL) {
+								v1 = v;
+							}
+
+							v = link->next(link, v);
+						} while (v && v != link->link);
+					}
+				}
+
+				// use the objects around or all the objects?
+				if (&man->objs == olink) {
+					//first do objects till end
+					//then do reflection and then transparent object
+					if (render_state == 0) {
+						obj = man->objs.next(&man->objs, obj);
+						if (!(obj && obj != man->objs.link)) {
+							obj = man->refl.link;
+							//next render reflection points
+							render_state = 1;
+							if (!obj) {
+								//or render reflection points
+								obj = man->tras.link;
+								render_state = 2;
+							}
+						}
+					}
+					else if (render_state == 1) {
+						obj = man->refl.next(&man->refl, obj);
+						if (!(obj && obj != man->refl.link)) {
+							obj = man->tras.link;
+							//next render transparent points
+							render_state = 2;
+						}
+
+					}
+					else {
+						obj = man->tras.next(&man->tras, obj);
+						if (!(obj && obj != man->tras.link)) {
+							break;
+						}
+					}
+				}
+				else {
+					obj = olink->next(olink, obj);
+					if (!(obj && obj != olink->link)) {
+						break;
+					}
+				}
+			} while (obj);
+		}
+		//make sure all temporary links are cleaned
+		if (&man->objs == olink) {
+		}
+		else {
+			olink->clearLink(olink);
+		}
+		if (hit_anything) {
+
+			Obj3D* obj = param.obj;
+			INT render_state = param.render_state;
+			VObj *v, *v0, *v1;
+			v = param.v;
+			v0 = param.v0;
+			v1 = param.v1;
+
+			_Verts(verts);
+
+			verts->v.set(p);
+			verts->trans = trans;
+			verts->n_r.set(v->n_r);
+			verts->obj = obj;
+			__image = &verts->color;
+
+			//shadow test set color to black or white
+			//then stop ray tracing
+			if (3 == ray.type) {
+				*__image = Light3D_multi(ray.color, ray.f / 5);
+				verts->type = 0;
+			}
+			else {
+				n0.set(p);
+				n1.set(n0)* cam->M_1;
+				//get texture and normal vector at the same time
+				*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, &verts->v_n);
+
+				if (1 == obj->normal_type) {
+					//get line formula
+					//v0-v1
+					Vert3D::GetLine(v1->v_s, v0->v_s, l1);
+					//v1-v
+					Vert3D::GetLine(v->v_s, v1->v_s, l);
+					//v-v0
+					Vert3D::GetLine(v0->v_s, v->v_s, l0);
+					//get range x
+					_n1.set(n0);
+					cam->normalize(cam, _n1);
+					_n2.set(_n1.x * cam->scale_w + cam->offset_w, _n1.y * cam->scale_h + cam->offset_h, _n1.z);
+					EFTYPE __y = _n2.y;
+					EFTYPE __x = _n2.x;
+					INT _line_l1 = (INT)(l1.x * __y + l1.y);
+					INT _line_l = (INT)(l.x * __y + l.y);
+					INT _line_l0 = (INT)(l0.x * __y + l0.y);
+					INT line_l, line_r;
+					INT minx, maxx;
+					minx = min(min(v->x0, v0->x0), min(v->x0, v1->x0));
+					maxx = max(max(v->x0, v0->x0), max(v->x0, v1->x0));
+					if (_line_l1 < minx || _line_l1 > maxx) {
+						_line_l1 = 0;
+						line_l = min(_line_l, _line_l0);
+						line_r = max(_line_l, _line_l0);
+					}
+					else if (_line_l < minx || _line_l > maxx) {
+						_line_l = 0;
+						line_l = min(_line_l1, _line_l0);
+						line_r = max(_line_l1, _line_l0);
+					}
+					else if (_line_l0 < minx || _line_l0 > maxx) {
+						_line_l0 = 0;
+						line_l = min(_line_l1, _line_l);
+						line_r = max(_line_l1, _line_l);
+					}
+					else {
+						line_l = min(min(_line_l, _line_l0), min(_line_l1, _line_l0));
+						line_r = max(max(_line_l, _line_l0), max(_line_l1, _line_l0));
+					}
+					//get interpolation normal vector from 3 points of a triangle
+					Object3D_GetInterpolationNormalVector(v0, v1, v, __x, __y,
+						line_r, line_l, _line_l1, _line_l, _line_l0,
+						5, _n0, _n1, _n2, _n3);
+					verts->v_3.set(_n0);
+				}
+				else {
+					_n0.set(v->n_r);
+					verts->v_3.set(verts->v_n);
+				}
+
+				//calculate sumption of light factors
+				lgt = man->lgts.link;
+				f = 0;
+				if (lgt) {
+					do {
+						f += lgt->getFactor(lgt, _n0, n0);
+
+						if (render_light < 0) {
+							break;
+						}
+
+						lgt = man->lgts.next(&man->lgts, lgt);
+					} while (lgt && lgt != man->lgts.link);
+				}
+
+
+				//normal verts
+				if (0 == render_state) {
+					*__image = Light3D_multi(*__image, f);
+					//set type normal
+					verts->type = 0;
+				}
+				//reflection verts
+				else if (1 == render_state) {
+					*__image = Light3D_add(*__image, BLACK, f / 2);
+					//*__image = Light3D_multi(BLACK, f);
+					//set type reflection
+					verts->type = 1;
+				}
+				//transparent verts
+				else if (2 == render_state) {
+					*__image = Light3D_add(*__image, BLACK, f / 2);
+					//*__image = Light3D_multi(BLACK, f);
+					//set type transparent
+					verts->type = 2;
+				}
+			}
+
+			//set object
+			ray.obj = obj;
+			//set rec
+			rec.t = verts->trans;
+			rec.p.set(verts->v);
+			rec.normal.set(verts->v_3).normalize();
+			rec.front_face = TRUE;
+			rec.use_color = TRUE;
+			rec.color = verts->color;
+			rec.material = (material*)obj->material;
+		}
+		return hit_anything;
+	}
+	void ray_color(Ray& r, Vert3D& cur_color, int mdp, ObjMan* octs) {
+		if (mdp <= 0) {
+			cur_color.set(0, 0, 0);
+			return;
+		}
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		hit_record rec;
+		if (test_hit(r, 0.001, INT_MAX, rec, octs)) {
+			Ray scattered;
+			if (rec.material->scatter(r, rec, cur_color, scattered)) {
+				ray_color(scattered, v0, mdp - 1, octs);
+				cur_color % v0;
+				return;
+			}
+			cur_color.set(0, 0, 0);
+			return;
+		}
+		unit_direction.set(r.direction).normalize();
+		t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+	void ray_color_6(Ray& r, Vert3D& cur_color, int mdp) {
+		if (mdp <= 0) {
+			cur_color.set(0, 0, 0);
+			return;
+		}
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		hit_record rec;
+		if (world->hit(r, 0.001, INT_MAX, rec)) {
+			//random_in_unit_sphere(v0);
+			//random_unit_vector(v0);
+			random_in_hemisphere(v0, rec.normal);
+			v1.set(rec.p) + rec.normal + v0;
+			r.set(rec.p, v1 - rec.p);
+			ray_color_6(r, cur_color, mdp - 1);
+			cur_color * 0.5;
+			return;
+		}
+		unit_direction.set(r.direction).normalize();
+		t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+	DWORD write_color(Vert3D& pixel_color, int samples_per_pixel) {
+		auto r = pixel_color.x;
+		auto g = pixel_color.y;
+		auto b = pixel_color.z;
+
+		// Divide the color by the number of samples.
+		auto scale = 1.0 / samples_per_pixel;
+		r = sqrt(scale * r);
+		g = sqrt(scale * g);
+		b = sqrt(scale * b);
+
+		// Write the translated [0,255] value of each color component.
+		return EGERGB(static_cast<int>(256 * clamp(r, 0.0, 0.999)),
+			static_cast<int>(256 * clamp(g, 0.0, 0.999)),
+			static_cast<int>(256 * clamp(b, 0.0, 0.999)));
+	}
+	void ray_color_5(Ray& r, Vert3D& cur_color) {
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		hit_record rec;
+		if (world->hit(r, 0, INT_MAX, rec)) {
+			v0.set(1, 1, 1);
+			(cur_color.set(rec.normal) + v0) * 0.5;
+			return;
+		}
+		unit_direction.set(r.direction).normalize();
+		t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+	EFTYPE hit_sphere_3(const Vert3D& center, EFTYPE radius, const Ray& r) {
+		Vert3D oc;
+		oc.set(r.original) - center;
+		EFTYPE a = r.direction ^ r.direction;
+		EFTYPE half_b = (oc ^ r.direction);
+		EFTYPE c = (oc ^ oc) - radius * radius;
+		EFTYPE discriminant = half_b * half_b - a*c;
+		if (discriminant < 0) {
+			return -1.0;
+		}
+		else {
+			return (-half_b - sqrt(discriminant)) / a;
+		}
+	}
+	EFTYPE hit_sphere_2(const Vert3D& center, EFTYPE radius, const Ray& r) {
+		Vert3D oc;
+		oc.set(r.original) - center;
+		EFTYPE a = r.direction ^ r.direction;
+		EFTYPE b = 2.0 * (oc ^ r.direction);
+		EFTYPE c = (oc ^ oc) - radius * radius;
+		EFTYPE discriminant = b * b - 4 * a*c;
+		if (discriminant < 0) {
+			return -1.0;
+		}
+		else {
+			return (-b - sqrt(discriminant)) / (2.0*a);
+		}
+	}
+	void ray_color_4(Ray& r, Vert3D& cur_color) {
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		//t = hit_sphere_2(v0.set(0, 0, -1), 0.5, r);
+		t = hit_sphere_3(v0.set(0, 0, -1), 0.5, r);
+		if (t > 0) {
+			r.getPoint(t, v0);
+			v1.set(0, 0, -1);
+			(v0 - v1).normalize();
+			cur_color.set(v0.x + 1, v0.y + 1, v0.z + 1) * 0.5;
+			return;
+		}
+		unit_direction.set(r.direction).normalize();
+		t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+	bool hit_sphere_1(const Vert3D& center, EFTYPE radius, const Ray& r) {
+		Vert3D oc;
+		oc.set(r.original) - center;
+		EFTYPE a = r.direction ^ r.direction;
+		EFTYPE b = 2.0 * (oc ^ r.direction);
+		EFTYPE c = (oc ^ oc) - radius * radius;
+		EFTYPE discriminant = b * b - 4 * a*c;
+		return (discriminant > 0);
+	}
+	void ray_color_3(Ray& r, Vert3D& cur_color) {
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		if (hit_sphere_1(v0.set(0, 0, -1), 0.5, r)) {
+			cur_color.set(0, 0, 1);
+			return;
+		}
+		unit_direction.set(r.direction).normalize();
+		t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+
+	void ray_color_2(Ray& r, Vert3D& cur_color) {
+		Vert3D unit_direction, v0, v1;
+		unit_direction.set(r.direction).normalize();
+		EFTYPE t = 0.5*(unit_direction.y + 1.0);
+		v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+		v1.set(0.5, 0.7, 1.0) * t;
+
+		cur_color.set(v0) + v1;
+	}
+
+
+	DWORD ray_color_1(INT i, INT j, INT image_width, INT image_height) {
+		EFTYPE r = EFTYPE(i) / (image_width - 1);
+		EFTYPE g = EFTYPE(j) / (image_height - 1);
+		EFTYPE b = 0.25;
+
+		INT ir = static_cast<int>(255.999 * r);
+		INT ig = static_cast<int>(255.999 * g);
+		INT ib = static_cast<int>(255.999 * b);
+
+		return EGERGB(ir, ig, ib);
+	}
+
+	DWORD write_color_1(Vert3D& pixel_color) {
+		// Write the translated [0,255] value of each color component.
+		return EGERGB(static_cast<int>(255.999 * pixel_color.x),
+			static_cast<int>(255.999 * pixel_color.y),
+			static_cast<int>(255.999 * pixel_color.z));
+	}
+
+
+	/////////////////////////////////////////////////////////////////////////////////////////////
 
 
 	void drawAABB(Manager3D& man, OctTree * oct) {
@@ -2472,7 +3400,7 @@ struct Device {
 			return;
 		}
 		if (oct->hasChild) {
-			for (int i = 0; i < MAX_QUARDANTS; i++) {
+			for (INT i = 0; i < MAX_QUARDANTS; i++) {
 				if (oct->children[i]) {
 					drawAABB(man, oct->children[i]);
 				}
@@ -2492,7 +3420,7 @@ struct Device {
 			v[6].set(oct->bounds.x + oct->bounds.width, oct->bounds.y + oct->bounds.height, oct->bounds.z + oct->bounds.depth);
 			v[7].set(oct->bounds.x + oct->bounds.width, oct->bounds.y, oct->bounds.z + oct->bounds.depth);
 			//to camera coordinate
-			for (int i = 0; i < 8; i++) {
+			for (INT i = 0; i < 8; i++) {
 				v[i] * cam->M;
 			}
 		}
@@ -2507,7 +3435,7 @@ struct Device {
 		INT intersect = 0;
 		DWORD * tango = EP_GetImageBuffer();
 
-		for (int i = 0; i < 6; i++) {
+		for (INT i = 0; i < 6; i++) {
 			v0.set(v[indice[i][0]]);
 			v1.set(v[indice[i][1]]);
 			v2.set(v[indice[i][2]]);
@@ -2534,9 +3462,9 @@ struct Device {
 		}
 	}
 
-	int Draw_Line(DWORD* vb_start, int lpitch, int height,
-		int x1, int y1, // 起始点
-		int x2, int y2, // 终点
+	INT Draw_Line(DWORD* vb_start, INT lpitch, INT height,
+		INT x1, INT y1, // 起始点
+		INT x2, INT y2, // 终点
 		DWORD color // 颜色像素
 		) // video buffer and memory pitch
 	{
@@ -2544,7 +3472,7 @@ struct Device {
 		// this function draws a line from xo,yo to x1,y1 using differential error
 		// terms (based on Bresenahams work)
 
-		int dx, // difference in x's
+		INT dx, // difference in x's
 			dy, // difference in y's
 			dx2, // dx,dy * 2
 			dy2,
@@ -2596,7 +3524,7 @@ struct Device {
 			// initialize error term
 			error = dy2 - dx;
 
-			int ddy = y1 * lpitch, ddx = x1;
+			INT ddy = y1 * lpitch, ddx = x1;
 			// draw the line
 			for (index = 0; index <= dx; index++)
 			{
@@ -2647,7 +3575,7 @@ struct Device {
 			// initialize error term
 			error = dx2 - dy;
 
-			int ddy = y1 * lpitch, ddx = x1;
+			INT ddy = y1 * lpitch, ddx = x1;
 			for (index = 0; index <= dy; index++)
 			{
 				// set the pixel

@@ -102,6 +102,14 @@ struct Ray {
 
 		return point;
 	}
+	//r(t) = o + t * d, t >= 0
+	_PLATFORM Vert3D& getPoint(float t, Vert3D& point) {
+		point.set(direction);
+		point * t;
+		point + original;
+
+		return point;
+	}
 };
 
 
@@ -158,4 +166,75 @@ _PLATFORM VertsMan * _VertsMan(VertsMan * that, int index, VertsPoolImp * poolIm
 
 	return that;
 }
+
+/////////////////////////////////////////////////////////////
+_PLATFORM double random_double() {
+	// Returns a random real in [0,1).
+	return rand() / (RAND_MAX + 1.0);
+}
+
+_PLATFORM double random_double(double min, double max) {
+	// Returns a random real in [min,max).
+	return min + (max - min)*random_double();
+}
+_PLATFORM double clamp(double x, double min, double max) {
+	if (x < min) return min;
+	if (x > max) return max;
+	return x;
+}
+_PLATFORM void random(Vert3D& v) {
+	v.set(random_double(), random_double(), random_double());
+}
+
+_PLATFORM void random(Vert3D& v, double min, double max) {
+	v.set(random_double(min, max), random_double(min, max), random_double(min, max));
+}
+_PLATFORM void random_in_unit_sphere(Vert3D& v) {
+	while (true) {
+		random(v, -1, 1);
+		if ((v ^ v) >= 1) continue;
+		return;
+	}
+}
+_PLATFORM void random_unit_vector(Vert3D& v) {
+	auto a = random_double(0, 2 * EP_PI);
+	auto z = random_double(-1, 1);
+	auto r = sqrt(1 - z * z);
+	v.set(r*cos(a), r*sin(a), z);
+}
+_PLATFORM void random_in_hemisphere(Vert3D& v, Vert3D& normal) {
+	random_in_unit_sphere(v);
+	if ((v ^ normal) > 0.0) // In the same hemisphere as the normal
+		NULL;
+	else
+		v.negative();
+}
+_PLATFORM void random_in_unit_disk(Vert3D& v) {
+	while (true) {
+		v.set(random_double(-1, 1), random_double(-1, 1), 0);
+		if ((v ^ v) >= 1) continue;
+		return;
+	}
+}
+_PLATFORM int random_int(int min, int max) {
+	// Returns a random integer in [min,max].
+	return static_cast<int>(random_double(min, max + 1));
+}
+_PLATFORM void reflect(const Vert3D& v, const Vert3D& n, Vert3D& r) {
+	r.set(n);
+	r * (2 * (v ^ n));
+	r.negative() + v;
+}
+_PLATFORM void refract(const Vert3D& uv, const Vert3D& n, double etai_over_etat, Vert3D& r) {
+	Vert3D v;
+	v.set(uv).negative();
+	auto cos_theta = v ^ n;
+	((r.set(n) * cos_theta) + uv) * etai_over_etat;
+	v.set(n) * (-sqrt(fabs(1.0 - (r ^ r))));
+	r + v;
+}
+_PLATFORM double degrees_to_radians(double degrees) {
+	return degrees * EP_PI / 180.0;
+}
+/////////////////////////////////////////////////////////////
 #endif
