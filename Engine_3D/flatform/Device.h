@@ -3224,12 +3224,13 @@ struct Device {
 		EFTYPE t;
 		Ray scattered;
 
-		//clear stack
-		recStack.clearLink(&recStack);
+		//clear stack, do not needed if stack balance is ensured by popList
+		//recStack.clearLink(&recStack);
 		//push first ray in stack
 		Records * records = recStack.recordsPool->get(recStack.recordsPool);
 		if (!records) {
 			printf("Insufficient records in pool\n");
+			cur_color.set(0, 0, 0);
 			return;
 		}
 		_Records(records, NULL);
@@ -3242,6 +3243,7 @@ struct Device {
 		Vert3D * color = &records->obj.color;
 		hit_record * rec = &records->obj.rec;
 		for (int i = 0; i < mdp; i++) {
+			//is hit
 			if (test_hit(*ray, 0.001, INT_MAX, *rec, octs)) {
 				//if hitted, scatter another ray
 				if (rec->material->scatter(*ray, *rec, *color, scattered)) {
@@ -3249,6 +3251,8 @@ struct Device {
 					records = recStack.recordsPool->get(recStack.recordsPool);
 					if (!records) {
 						printf("Insufficient records in pool\n");
+						recStack.clearLink(&recStack);
+						color->set(0, 0, 0);
 						break;
 					}
 					_Records(records, NULL);
@@ -3274,7 +3278,7 @@ struct Device {
 
 				color->set(v0) + v1;
 			}
-			//accululate all the stack colors an finish
+			//accumulate all the stack colors and finish
 			do {
 				records = recStack.popLink(&recStack);
 				if (records) {
@@ -3291,8 +3295,8 @@ struct Device {
 		if (color) {
 			cur_color.set(*color);
 		}
-		//clear stack
-		recStack.clearLink(&recStack);
+		//clear stack, do not needed if stack balance is ensured by popList
+		//recStack.clearLink(&recStack);
 	}
 	void ray_color(Ray& r, Vert3D& cur_color, int mdp, ObjMan* octs) {
 		if (mdp <= 0) {
