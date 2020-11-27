@@ -140,4 +140,139 @@ _PLATFORM HittableMan * _HittableMan(HittableMan * that, int index, HittablePool
 }
 /////////////////////////////////////
 
+struct records {
+	hit_record rec;
+	Ray ray;
+	Vert3D color;
+};
+
+/////////////////////////////////////////////////////
+#define MAX_RECORDS_MAX 1
+#define MAX_RECORDS_LINK 1 + MAX_RECORDS_MAX
+typedef struct Records Records;
+struct Records {
+	__SUPER(MultiLinkElement, Records, NULL);
+	Records * _prev[MAX_RECORDS_LINK];
+	Records * _next[MAX_RECORDS_LINK];
+
+	/////////////////////////////////////
+	records obj;
+	/////////////////////////////////////
+};
+_PLATFORM Records * _Records(Records * that, records * o) {
+	that->prev = that->_prev;
+	that->next = that->_next;
+	_MultiLinkElement(&that->super, MAX_RECORDS_LINK);
+
+	/////////////////////////////////////
+	//that->obj = o;
+	/////////////////////////////////////
+
+	return that;
+}
+
+/////////////////////////////////////
+typedef struct RecordsPool RecordsPool;
+struct RecordsPool {
+	__SUPER(ElementPool, RecordsPool, Records);
+};
+_PLATFORM Records * RecordsPool_at(RecordsPool * that, int index) {
+	return &that->pool[index];
+}
+_PLATFORM void _RecordsPool(RecordsPool * that, Records * pool, UMAP * map, int size) {
+	_ElementPool(&that->super, (MultiLinkElement*)pool, map, size);
+
+	that->at = RecordsPool_at;
+}
+
+#define MAX_RECORDS	1000
+#define MAP_RECORDS	GET_MAP_SIZE(MAX_RECORDS)
+typedef struct RecordsPoolImp RecordsPoolImp;
+struct RecordsPoolImp {
+	Records pool[MAX_RECORDS];
+	UMAP map[MAP_RECORDS];
+
+	RecordsPool recordsPool;
+};
+_PLATFORM RecordsPoolImp * _RecordsPoolImp(RecordsPoolImp *that) {
+
+	for (int i = 0; i < MAX_RECORDS; i++) {
+		_Records(&that->pool[i], NULL);
+	}
+	_RecordsPool(&that->recordsPool, that->pool, that->map, MAX_RECORDS);
+
+	return that;
+}
+
+typedef bool(*RecordsMan_Comp)(Records* a, Records* b);
+typedef struct RecordsMan RecordsMan;
+struct RecordsMan {
+	__SUPER(MultiLinkBase, RecordsMan, Records);
+
+	RecordsPool * recordsPool;
+	RecordsPoolImp * recordsPoolImp;
+
+	////////////////////////////
+	void(*clearLink)(RecordsMan * that);
+	Records* (*popLink)(RecordsMan * that);
+	void(*sort)(RecordsMan * that, int start, int end, RecordsMan_Comp fun);
+	////////////////////////////
+};
+_PLATFORM Records*  RecordsMan_poplink(RecordsMan * that) {
+	if (that->link) {
+		Records * temp = that->prev(that, that->link);
+		if (temp) {
+			if (that->removeLink(that, temp) == NULL) {
+				return NULL;
+			}
+			if (!temp->free(temp)) {
+				that->recordsPool->back(that->recordsPool, temp);
+			}
+			return temp;
+		}
+	}
+	return NULL;
+}
+_PLATFORM void RecordsMan_clearlink(RecordsMan * that) {
+	if (that->link) {
+		Records * temp = that->link;
+		do {
+			if (that->removeLink(that, temp) == NULL) {
+				break;
+			}
+			if (!temp->free(temp)) {
+				that->recordsPool->back(that->recordsPool, temp);
+			}
+
+			temp = that->link;
+		} while (temp);
+	}
+}
+_PLATFORM void RecordsMan_sort(RecordsMan * that, int start, int end, RecordsMan_Comp fun) {
+	end = end - 1;
+	if (start < 0) {
+		return;
+	}
+	if (end >= that->linkcount) {
+		return;
+	}
+	if (start <= end) {
+		return;
+	}
+}
+_PLATFORM RecordsMan * _RecordsMan(RecordsMan * that, int index, RecordsPoolImp * poolImp) {
+	_MultiLinkBase(&that->super, index);
+
+	that->recordsPool = &poolImp->recordsPool;
+	that->recordsPoolImp = poolImp;
+
+	///////////////////////////////////////
+	that->clearLink = RecordsMan_clearlink;
+	that->popLink = RecordsMan_poplink;
+	that->sort = RecordsMan_sort;
+	///////////////////////////////////////
+
+	return that;
+}
+/////////////////////////////////////
 #endif

@@ -228,7 +228,9 @@ MultiLinkLocalElement * ElementLocalPool_get(ElementLocalPool * that) {
 			for (j = 0; j < MAP_SHIFT && index < that->size; j++, index++) {
 				if (that->map[i] & (0x01 << j)) {
 					that->map[i] &= ~(0x01 << j);
-					return that->at(that, index);
+					MultiLinkLocalElement * ret = that->at(that, index);
+					ret->linkindex = index;
+					return ret;
 				}
 			}
 		}
@@ -238,6 +240,13 @@ MultiLinkLocalElement * ElementLocalPool_get(ElementLocalPool * that) {
 void ElementLocalPool_back(ElementLocalPool * that, MultiLinkLocalElement * o) {
 	int i, j, index;
 	if (o == NULL) {
+		return;
+	}
+	if (o->linkindex >= 0 && o->linkindex < that->size) {
+		index = o->linkindex;
+		i = index / MAP_SHIFT;
+		j = index - i * MAP_SHIFT;
+		that->map[i] |= (0x01 << j);
 		return;
 	}
 	for (index = 0; index < that->size; index++) {

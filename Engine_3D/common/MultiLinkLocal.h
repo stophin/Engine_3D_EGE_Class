@@ -21,6 +21,7 @@
 typedef struct MultiLinkLocalElement {
 #define MultiLinkLocalElementTemplate(T)\
 	int linkcount;\
+	int linkindex;\
 	int uniqueID;\
 	T ** prev;\
 	T ** next;\

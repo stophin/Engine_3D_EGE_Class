@@ -65,6 +65,7 @@ struct Device {
 		INT id;
 		void* objPool;
 		void* vobjPool;
+		void* recordsPool;
 	};
 
 	EPoint e, s, v, c;
@@ -1596,6 +1597,7 @@ struct Device {
 	void * pool = NULL;
 	void* vobjPool = NULL;
 	void* objPool = NULL;
+	void* recordsPool = NULL;
 	INT thread_ready;
 	INT * thread_status = NULL;
 	INT thread_all_done;
@@ -1633,13 +1635,16 @@ struct Device {
 			}
 			if (pool == NULL) {
 				//pool = new VertsPoolImp[thread_count * thread_count];
-				pool = malloc(sizeof(VertsPoolImp) * thread_count * thread_count);
+				pool = malloc(sizeof(VertsPoolImp) * thread_count_h * thread_count);
 			}
 			if (vobjPool == NULL) {
-				vobjPool = malloc(sizeof(VObjMiniPoolImp) * thread_count * thread_count);
+				vobjPool = malloc(sizeof(VObjMiniPoolImp) * thread_count_h * thread_count);
 			}
 			if (objPool == NULL) {
-				objPool = malloc(sizeof(ObjPoolImp) * thread_count * thread_count);
+				objPool = malloc(sizeof(ObjPoolImp) * thread_count_h * thread_count);
+			}
+			if (recordsPool == NULL) {
+				recordsPool = malloc(sizeof(RecordsPoolImp) * thread_count_h * thread_count);
 			}
 			for (INT i = 0; i < thread_count_h; i++) {
 				for (INT j = 0; j < thread_count; j++) {
@@ -1654,6 +1659,7 @@ struct Device {
 					param[index].pool = pool;
 					param[index].objPool = objPool;
 					param[index].vobjPool = vobjPool;
+					param[index].recordsPool = (RecordsPoolImp*)recordsPool + i * thread_count + j;
 
 					thread_pool[index] = CreateThread(NULL, 0, RenderThreadProc, &param[index], 0, NULL);
 					param[index].hThread = thread_pool[index];
@@ -1733,6 +1739,9 @@ struct Device {
 		if (vobjPool) {
 			delete[] vobjPool;
 		}
+		if (recordsPool) {
+			delete[] recordsPool;
+		}
 	}
 	static DWORD WINAPI RenderThreadMain(LPVOID lpThreadParameter) {
 		Device * device = (Device*)lpThreadParameter;
@@ -1776,7 +1785,7 @@ struct Device {
 				RenderRayCastingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool, pthread->objPool, pthread->vobjPool);
 			}
 			else {
-				RenderRayTracingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool, pthread->objPool, pthread->vobjPool);
+				RenderRayTracingSub(*pthread->man, pthread->sx, pthread->sy, pthread->ex, pthread->ey, pthread->id, pthread->hMutex, pthread->device, pthread->pool, pthread->objPool, pthread->vobjPool, pthread->recordsPool);
 			}
 			pthread->device->thread_status[pthread->id] = 0;
 			SuspendThread(pthread->hThread);
@@ -2499,7 +2508,7 @@ struct Device {
 	}
 	
 	//ray tracing
-	static void RenderRayTracingSub(Manager3D & man, INT sx, INT sy, INT ex, INT ey, INT id, HANDLE hMutex, Device* device = NULL, void * pools = NULL, void * objPool = NULL, void * vobjPool = NULL) {
+	static void RenderRayTracingSub(Manager3D & man, INT sx, INT sy, INT ex, INT ey, INT id, HANDLE hMutex, Device* device = NULL, void * pools = NULL, void * objPool = NULL, void * vobjPool = NULL, void * recordsPool = NULL) {
 		if (NULL == device) {
 			return;
 		}
@@ -2538,6 +2547,11 @@ struct Device {
 		_VObjMiniPoolImp((VObjMiniPoolImp*)vobjPool);
 		_ObjPoolImp((ObjPoolImp*)objPool, (VObjPoolImp*)vobjPool);
 		_ObjMan(&octs, MAX_OBJ3D_START + 1 +id, (ObjPoolImp*)objPool, (VObjPoolImp*)vobjPool);
+
+		RecordsMan recStack;
+		RecordsPoolImp* stackPool = (RecordsPoolImp*)recordsPool;
+		_RecordsPoolImp(stackPool);
+		_RecordsMan(&recStack, 1, stackPool);
 
 		DWORD * __image;
 		//reflection times
@@ -2633,7 +2647,8 @@ struct Device {
 					if (device->cam_type > 0) {
 						device->rtcam->get_ray(ray, u, v);
 					}
-					device->ray_color(ray, cur_color, device->max_depth, &octs);
+					//device->ray_color(ray, cur_color, device->max_depth, &octs);
+					device->ray_color_loop(ray, cur_color, device->max_depth, &octs, recStack);
 					pixel_color + cur_color;
 				}
 				color = device->write_color(pixel_color, device->samples_per_pixel);
@@ -3203,6 +3218,81 @@ struct Device {
 			rec.material = (material*)obj->material;
 		}
 		return hit_anything;
+	}
+	void ray_color_loop(Ray& r, Vert3D& cur_color, int mdp, ObjMan* octs, RecordsMan& recStack) {
+		Vert3D unit_direction, v0, v1;
+		EFTYPE t;
+		Ray scattered;
+
+		//clear stack
+		recStack.clearLink(&recStack);
+		//push first ray in stack
+		Records * records = recStack.recordsPool->get(recStack.recordsPool);
+		if (!records) {
+			printf("Insufficient records in pool\n");
+			return;
+		}
+		_Records(records, NULL);
+		//set ray
+		records->obj.ray.set(r.original, r.direction);
+		//push
+		recStack.insertLink(&recStack, records, NULL, NULL);
+		//pointers
+		Ray * ray = &records->obj.ray;
+		Vert3D * color = &records->obj.color;
+		hit_record * rec = &records->obj.rec;
+		for (int i = 0; i < mdp; i++) {
+			if (test_hit(*ray, 0.001, INT_MAX, *rec, octs)) {
+				//if hitted, scatter another ray
+				if (rec->material->scatter(*ray, *rec, *color, scattered)) {
+					//push new ray in stack
+					records = recStack.recordsPool->get(recStack.recordsPool);
+					if (!records) {
+						printf("Insufficient records in pool\n");
+						break;
+					}
+					_Records(records, NULL);
+					//set ray
+					records->obj.ray.set(scattered.original, scattered.direction);
+					//push
+					recStack.insertLink(&recStack, records, NULL, NULL);
+					//pointers
+					ray = &records->obj.ray;
+					color = &records->obj.color;
+					rec = &records->obj.rec;
+					continue;
+				}
+				//if the material decides not to scatter
+				color->set(0, 0, 0);
+			}
+			else {
+				//if not hit, set the color of sky
+				unit_direction.set(ray->direction).normalize();
+				t = 0.5*(unit_direction.y + 1.0);
+				v0.set(1.0, 1.0, 1.0) * (1.0 - t);
+				v1.set(0.5, 0.7, 1.0) * t;
+
+				color->set(v0) + v1;
+			}
+			//accululate all the stack colors an finish
+			do {
+				records = recStack.popLink(&recStack);
+				if (records) {
+					records->obj.color % (*color);
+					color = &records->obj.color;
+					//pointers
+					ray = &records->obj.ray;
+					color = &records->obj.color;
+					rec = &records->obj.rec;
+				}
+			} while (records);
+			break;
+		}
+		if (color) {
+			cur_color.set(*color);
+		}
+		//clear stack
+		recStack.clearLink(&recStack);
 	}
 	void ray_color(Ray& r, Vert3D& cur_color, int mdp, ObjMan* octs) {
 		if (mdp <= 0) {
