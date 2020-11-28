@@ -125,7 +125,7 @@ bool ObjParser::ParseEx(char* fileName, char buffer[], char command[], char para
 					union {
 						struct {
 							char * v, *t, *n;
-						};
+						}a;
 						char * _attr[3];
 					};
 					char * attr;
@@ -148,7 +148,7 @@ bool ObjParser::ParseEx(char* fileName, char buffer[], char command[], char para
 								}
 							}
 						}
-						AddFace(v ? atoi(v) : 0, t ? atoi(t) : 0, n ? atoi(n) : 0, i, attrCount - i == 1 ? 1 : 0);
+						AddFace(a.v ? atoi(a.v) : 0, a.t ? atoi(a.t) : 0, a.n ? atoi(a.n) : 0, i, attrCount - i == 1 ? 1 : 0);
 						result++;
 					}
 				}

@@ -11,6 +11,8 @@ CLoad3DS::CLoad3DS()//  构造函数的功能是初始化tChunk数据
 	}
 	m_CurrentChunk = new tChunk;        // 初始化并为当前的块分配空间
 	m_TempChunk = new tChunk;                // 初始化一个临时块并分配空间
+	m_3DModel.numOfObjects = 0;
+	m_3DModel.numOfMaterials = 0;
 }
 CLoad3DS::~CLoad3DS()
 {

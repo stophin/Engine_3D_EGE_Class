@@ -53,5 +53,16 @@ struct ERectF {
 #define EP_Delay(ms) delay_ms(ms)
 #define EP_ClearDevice cleardevice
 
+#ifdef _NANO_MINGW_
+#include <stdio.h>
+#define fopen_s(fp, filename, mode) *fp = fopen(filename, mode)
+#define sprintf_s sprintf
+#undef scanf
+#undef getch
+#undef kbhit
+#define INT_MIN     (-2147483647 - 1) // minimum (signed) int value
+#define INT_MAX       2147483647    // maximum (signed) int value
+#endif
+
 #endif	//end of _ELIBRARY_H_
 //end of file
