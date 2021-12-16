@@ -1221,10 +1221,10 @@ _PLATFORM void ObjMan_clearlink(ObjMan * that){
 				break;
 			}
 			if (!temp->free(temp)) {
-				temp->indice.clearLink(&temp->verts);
+				temp->indice.clearLink(&temp->indice);
 				temp->verts.clearLink(&temp->verts);
-				temp->verts_r.clearLink(&temp->verts);
-				temp->verts_f.clearLink(&temp->verts);
+				temp->verts_r.clearLink(&temp->verts_r);
+				temp->verts_f.clearLink(&temp->verts_f);
 				that->objPool->back(that->objPool, temp);
 			}
 
