@@ -7,7 +7,7 @@ Device device;
 TextureManager tmand;
 TextureLocalManager tman;
 TextureLocalPoolImp textureLocalPoolImp;
-TexturePoolImp texturePoolImp;
+TexturePoolImp* ptexturePoolImp;
 VObjPoolImp vobjPoolImp;
 ObjPoolImp objPoolImp;
 CamPoolImp camPoolImp;
@@ -55,6 +55,8 @@ VOID onResize(FLOAT width, FLOAT height)
 }
 
 VOID onClose() {
+	tmand.~TextureManager();
+	if (ptexturePoolImp) free(ptexturePoolImp);
 }
 
 EPoint org;
@@ -167,14 +169,19 @@ VOID onPaint(HWND hWnd)
 		}
 		device.ClearBeforeRender();
 		if (device.render_thread > 0) {
-			device.RenderThread(man);
 			if (man.changed > 0) {
 				man.changed--;
-				device.RenderThreadReady(man, NULL, NULL, NULL);
+				if (device.thread_ready_r) {
+					device.ClearBeforeRenderDepth();
+					device.RenderThreadReady(man, NULL, NULL, NULL, &device);
+				}
 			}
+			//device.ClearBeforeRenderDepth();
+			device.RenderThread(man);
 			while (!device.IsThreadDone());
 		}
 		else {
+			device.ClearBeforeRenderDepth();
 			device.Render(man, NULL, NULL, NULL);
 		}
 		if (device.render_mirror > 0) {
@@ -289,7 +296,7 @@ VOID Initialize()
 	tman.texturePoolImp = &textureLocalPoolImp;
 	tman.Init();
 	INT tid = tman.addTexture(64, 64, 8);
-	//tid = tman.addTexture("1.jpg");
+	tid = tman.addTexture("image/1.jpg");
 
 	man.vobjPoolImp = &vobjPoolImp;
 	man.objPoolImp = &objPoolImp;
@@ -1196,12 +1203,15 @@ VOID Initialize()
 	}
 
 	//这里模拟cuda的host-device操作，将texture从host复制到device，并修改obj的texture指针
-	tmand.texturePoolImp = &texturePoolImp;
+	ptexturePoolImp = (TexturePoolImp*)malloc(sizeof(TexturePoolImp));
+	TexturePoolImp& texturePoolImp = *ptexturePoolImp;
+	//tmand.texturePoolImp = &texturePoolImp;
 	//make pool copy, make sure TextureLocalPoolImp and TexturePoolImp are the same size
-	memcpy(&texturePoolImp, &textureLocalPoolImp, sizeof(TexturePoolImp));
+	//memcpy(&texturePoolImp, &textureLocalPoolImp, sizeof(TexturePoolImp));
 	//texture pointer reset
+	TextureLocalPoolImp textPoolBackup;
 	for (int i = 0; i < MAX_TEXTURE; i++) {
-		texturePoolImp.pool[i].texture = NULL;
+		textPoolBackup.pool[i].texture = NULL;
 	}
 	//texture copy
 	for (int i = 0; i < MAX_TEXTURE; i++) {
@@ -1212,9 +1222,13 @@ VOID Initialize()
 		if (textureLocal->texture != NULL && textureLocal->width > 0 && textureLocal->height > 0) {
 			DWORD * texture = new DWORD[textureLocal->width * textureLocal->height];
 			memcpy(texture, textureLocal->texture, sizeof(DWORD) * textureLocal->width * textureLocal->height);
-			texturePoolImp.pool[i].texture = texture;
+			textPoolBackup.pool[i].texture = texture;
+			textPoolBackup.pool[i].width = textureLocal->width;
+			textPoolBackup.pool[i].height = textureLocal->height;
+			textPoolBackup.pool[i].uniqueID = textureLocal->uniqueID;
 		}
 	}
+	memcpy(&texturePoolImp, &textPoolBackup, sizeof(TextureLocalPoolImp));
 
 	tmand.texturePoolImp = &texturePoolImp;
 	tmand.Init();
@@ -1265,6 +1279,29 @@ VOID Initialize()
 			obj = man.tras.next(&man.tras, obj);
 		} while (obj && obj != man.tras.link);
 	}
+
+
+	if (0) {
+		Object3D* _obj = &man.addObject();
+		_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
+			._move(_obj, 0, 100, -200).setColor(_obj, GREEN).setTextureD(_obj, tmand, 1, 0).setUV(_obj, 0, 0);
+		_obj = &man.addObject();
+		_obj->addVert(_obj, -10, 0, -10).addVert(_obj, 10, 0, -10).addVert(_obj, -10, 0, 10).addVertA(_obj, 10, 0, 10, -1)._rotate(_obj, 0, 0, 180)
+			._scale(_obj, 5, 5, 5)._move(_obj, 150, -40, 250).setColor(_obj, LIGHTGRAY);
+
+		_obj = &man.addObject();
+		_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
+			._move(_obj, 0, 100, -100).setColor(_obj, GREEN).setTextureD(_obj, tmand, 1, 0).setUV(_obj, 0, 0);
+
+		_obj = &man.addObject();
+		_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
+			._move(_obj, 0, 100, -0).setColor(_obj, GREEN).setTextureD(_obj, tmand, 1, 0).setUV(_obj, 0, 0);
+
+		_obj = &man.addObject();
+		_obj->addVert(_obj, -10, -10, 10).addVert(_obj, 10, -10, 10).addVert(_obj, -10, 10, 10).addVertA(_obj, 10, 10, 10, -1)._scale(_obj, 5, 5, 5)
+			._move(_obj, 0, 100, 100).setColor(_obj, GREEN).setTextureD(_obj, tmand, 1, 0).setUV(_obj, 0, 0);
+	}
+
 
 	tman.~TextureLocalManager();
 

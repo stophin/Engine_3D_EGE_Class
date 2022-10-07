@@ -145,6 +145,9 @@ _PLATFORM MultiLinkElement * MultiLinkBase_removeLink(MultiLinkBase * that, Mult
 	before = link->prev[that->linkindex];
 	after = link->next[that->linkindex];
 
+	if (!before || !after) {
+		return NULL;
+	}
 	before->next[that->linkindex] = after;
 	after->prev[that->linkindex] = before;
 	link->prev[that->linkindex] = NULL;

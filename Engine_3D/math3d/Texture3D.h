@@ -22,6 +22,8 @@ struct Texture {
 	INT height;
 	DWORD *texture;
 	EIMAGE image;
+	void (*LoadTexture)(Texture* that, INT w, INT h, INT n);
+	void (*LoadTextureEx)(Texture* that, char* filename);
 	void (*destory)(Texture * that);
 	/////////////////////////////////////
 };
@@ -85,12 +87,14 @@ _PLATFORM TexturePoolImp * _TexturePoolImpReload(TexturePoolImp * that) {
 		//keep texture and other settings
 		INT width = that->pool[i].width;
 		INT height = that->pool[i].height;
+		INT uniqueID = that->pool[i].uniqueID;
 		DWORD * texture = that->pool[i].texture;
 		_Texture(&that->pool[i]);
 		//restore
 		that->pool[i].width = width;
 		that->pool[i].height = height;
 		that->pool[i].texture = texture;
+		that->pool[i].uniqueID = uniqueID;
 	}
 	_TexturePool(&that->textPool, that->pool, that->map, MAX_TEXTURE);
 
@@ -154,12 +158,14 @@ public:
 		//and reload all the host functions to device function
 		_TexturePoolImpReload(this->texturePoolImp);
 		for (int i = 0; i < MAX_TEXTURE; i++) {
-			if (this->texturePoolImp->pool[i].texture) {
+			Texture& t = this->texturePoolImp->pool[i];
+			if (t.texture) {
+				//t.uniqueID = i;
 				for (int j = 0; j < MAX_TEXTURE_LINK; j ++) {
-					this->texturePoolImp->pool[i].prev[j] = NULL;
-					this->texturePoolImp->pool[i].next[j] = NULL;
+					t.prev[j] = NULL;
+					t.next[j] = NULL;
 				}
-				this->textures.insertLink(&this->textures, &this->texturePoolImp->pool[i], NULL, NULL);
+				this->textures.insertLink(&this->textures, &t, NULL, NULL);
 			}
 		}
 	}

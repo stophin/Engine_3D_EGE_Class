@@ -5,8 +5,8 @@
 
 int main(int argc, char* argv[])
 {
-	//EP_Init(800, 600);
-	EP_Init(300, 200);
+	EP_Init(800, 600);
+	//EP_Init(300, 200);
 	//EP_Init(-1, -1);
 
 	Initialize();
@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 			onTimer();
 		}
 		//delay_ms(100);
-		EP_RenderFlush();
+		EP_RenderFlush(10000);
 		if (isRenderRaytracing()) {
 			sprintf_s(str, "Raytracing %f", getfps());
 		}

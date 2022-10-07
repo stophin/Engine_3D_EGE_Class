@@ -38,42 +38,12 @@ struct Light3D {
 #define Define_Light3D(T)  Light3D_Define(T)
 	Define_Light3D(Light3D)
 };
-#define Light3D_Function(T, D, P) \
-_ ##D void Light3D_render_normalize ##T ##P(T * that) {\
-	if (that->cam == NULL) {\
-		return;\
-	}\
-	that->pos_r.set(that->pos);\
-	that->pos_r * that->M * that->cam->M;\
-}\
-_ ##D T& Light3D_move ##T ##P(T *that, EFTYPE dx, EFTYPE dy, EFTYPE dz) {\
-	that->_M.move(dx, dy, dz); \
-	\
-	that->render_normalize(that); \
-	\
-	return *that; \
-}\
-_ ##D T& Light3D_rotate ##T ##P(T * that, EFTYPE dx, EFTYPE dy, EFTYPE dz) {\
-		that->_M.rotate(dx, dy, dz); \
-		\
-		that->render_normalize(that); \
-		\
-		return *that; \
-}\
-_ ##D EFTYPE Light3D_getFactor ##T ##P(T * that, const Vert3D& n, const Vert3D& n0) {\
-	EFTYPE f = 0, _f = 0, __f = 0; \
-	that->n1.set(that->pos_r); \
-	that->n1 - n0; \
-	_f = (n & that->n1); \
-	if (that->mode > 0) {\
-			that->r.set(n); \
-			that->r * (2 * (that->r ^ that->n1)) - that->n1; \
-			__f = (that->r & n); \
-			__f *= __f; \
-	}\
-	f += _f + __f; \
-	return f; \
-}
+#define Light3D_Function(T, D, P)
+
+#define T Light3D
+#include "Light3D_funcs.h"
+#undef T
+
 #define Function_Light3D(T, D, P) Light3D_Function(T, D, P)
 Function_Light3D(Light3D, PLATFORM, _)
 _PLATFORM Light3D * _Light3D(Light3D * that) {
@@ -83,10 +53,10 @@ _PLATFORM Light3D * _Light3D(Light3D * that) {
 
 	/////////////////////////////////////
 #define Light3D_Creator(T, P)\
-	that->render_normalize = Light3D_render_normalize ##T ##P; \
-	that->_move = Light3D_move ##T ##P; \
-	that->_rotate = Light3D_rotate ##T ##P; \
-	that->getFactor = Light3D_getFactor ##T ##P; \
+	that->render_normalize = Light3D_render_normalize ##P; \
+	that->_move = Light3D_move ##P; \
+	that->_rotate = Light3D_rotate ##P; \
+	that->getFactor = Light3D_getFactor ##P; \
 	\
 	that->_M.M = &that->M; \
 	that->_M.M_1 = &that->M_1; \
@@ -137,12 +107,17 @@ struct Lgt3D {
 	Light3D_Define(Lgt3D)
 };
 Light3D_Function(Lgt3D, PLATFORM, __)
+
+#define T Lgt3D
+#include "Light3D_funcs.h"
+#undef T
+
 _PLATFORM Lgt3D * _Lgt3D(Lgt3D * that) {
 	that->prev = that->_prev;
 	that->next = that->_next;
 	_MultiLinkElement(&that->super, MAX_LGT_LINK);
 
-	Light3D_Creator(Lgt3D, __)
+	Light3D_Creator(Lgt3D, _)
 
 	return that;
 }
