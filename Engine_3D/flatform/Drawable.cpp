@@ -93,6 +93,10 @@ VOID onPaint(HWND hWnd)
 	// Place draw code here
 	EP_SetColor(EP_BLACK);
 	EP_ClearDevice();
+
+	//Vertex shader
+	man.shaderVertex(NULL);
+
 	//Render in device buffer
 	if (device.render_raytracing > 0) {
 		if (enter_once < 0) {
@@ -314,7 +318,7 @@ VOID Initialize()
 	man.Init();
 
 
-	Camera3D * cam = &man.addCamera(50, 50, 50, 1000, 90, 90);
+	Camera3D * cam = &man.addCamera(50, 50, 50, 1000, 70, 70);
 	man.setCameraRange(500, 240, 126, 126);
 	cam->_move(cam, 0, 0, -200);
 

@@ -224,7 +224,7 @@ struct Vert3D {
 		if (!EP_ISZERO(n.z)) {
 			z_1 = 1 / n.z;
 		}
-		return (-n.x * (x - x0) - n.y * (y - y0)) / n.z + z0;
+		return (-n.x * (x - x0) - n.y * (y - y0)) * z_1 + z0;
 	}
 	_PLATFORM static EFTYPE getXFromY(const Vert3D& v0, const Vert3D& v1, EFTYPE y) {
 		EFTYPE dy_1 = v1.y - v0.y;

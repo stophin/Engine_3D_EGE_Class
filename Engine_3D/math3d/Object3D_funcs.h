@@ -467,33 +467,47 @@ _PLATFORM void Object3D_render_normalize_(T* that, int mode) {
 		that->debugger = 2;
 		return;
 	}
+	that->debugger = 3;
+	that->CM.setI()* that->M* that->cam->M;
+
+	if (that->render_aabb > 0) {
+		that->render_aabb = -that->render_aabb;
+
+		that->aabb[0].set(that->leftTopBack_O.x, that->leftTopBack_O.y, that->rightBottomFront_O.z);
+		that->aabb[1].set(that->leftTopBack_O.x, that->rightBottomFront_O.y, that->rightBottomFront_O.z);
+		that->aabb[3].set(that->rightBottomFront_O.x, that->leftTopBack_O.y, that->rightBottomFront_O.z);
+		that->aabb[5].set(that->leftTopBack_O.x, that->rightBottomFront_O.y, that->leftTopBack_O.z);
+		that->aabb[6].set(that->rightBottomFront_O.x, that->rightBottomFront_O.y, that->leftTopBack_O.z);
+		that->aabb[7].set(that->rightBottomFront_O.x, that->leftTopBack_O.y, that->leftTopBack_O.z);
+	}
+	if (that->render_aabb) {
+		if (mode == 1) {
+			that->refreshAABBW(that);
+		}
+		else if (mode == 2) {
+			that->refreshAABBC(that);
+		}
+		else if (mode == 3) {
+			that->refreshAABBW(that);
+			that->refreshAABBC(that);
+		}
+	}
+}
+_PLATFORM void Object3D_shaderVertex_(T* that) {
+	if (NULL == that->cam) {
+		that->debugger = 2;
+		return;
+	}
 	VObj* v = that->verts.link;
 	if (v) {
-		that->debugger = 3;
-		that->CM.setI()* that->M* that->cam->M;
-
-		if (that->render_aabb > 0) {
-			that->render_aabb = -that->render_aabb;
-
-			that->aabb[0].set(that->leftTopBack_O.x, that->leftTopBack_O.y, that->rightBottomFront_O.z);
-			that->aabb[1].set(that->leftTopBack_O.x, that->rightBottomFront_O.y, that->rightBottomFront_O.z);
-			that->aabb[3].set(that->rightBottomFront_O.x, that->leftTopBack_O.y, that->rightBottomFront_O.z);
-			that->aabb[5].set(that->leftTopBack_O.x, that->rightBottomFront_O.y, that->leftTopBack_O.z);
-			that->aabb[6].set(that->rightBottomFront_O.x, that->rightBottomFront_O.y, that->leftTopBack_O.z);
-			that->aabb[7].set(that->rightBottomFront_O.x, that->leftTopBack_O.y, that->leftTopBack_O.z);
+		int i = 0;
+		if (that->verts_r.linkcount > 0) {
+			that->verts_r.linkcount = -that->verts_r.linkcount;
+		}
+		if (that->verts_f.linkcount > 0) {
+			that->verts_f.linkcount = -that->verts_f.linkcount;
 		}
 		if (that->render_aabb) {
-			if (mode == 1) {
-				that->refreshAABBW(that);
-			}
-			else if (mode == 2) {
-				that->refreshAABBC(that);
-			}
-			else if (mode == 3) {
-				that->refreshAABBW(that);
-				that->refreshAABBC(that);
-			}
-			int i;
 			for (i = 0; i < 8; i++) {
 				v->v_r.set(that->aabb_r[i]);
 				v->v_r.w = EP_MAX;
@@ -502,18 +516,11 @@ _PLATFORM void Object3D_render_normalize_(T* that, int mode) {
 				}
 			}
 			if (i == 8) {
-				that->verts_r.clearLink(&that->verts_r);
-				that->verts_f.clearLink(&that->verts_f);
+				//that->verts_r.clearLink(&that->verts_r);
+				//that->verts_f.clearLink(&that->verts_f);
 				that->debugger = 4;
 				return;
 			}
-		}
-		int i = 0;
-		if (that->verts_r.linkcount > 0) {
-			that->verts_r.linkcount = -that->verts_r.linkcount;
-		}
-		if (that->verts_f.linkcount > 0) {
-			that->verts_f.linkcount = -that->verts_f.linkcount;
 		}
 		that->v0 = NULL;
 		that->v1 = NULL;
@@ -561,6 +568,7 @@ _PLATFORM void Object3D_render_normalize_(T* that, int mode) {
 			v->v_r.set(v->v_c);
 			that->debugger = v->v_r.z;
 			v->cut = !that->cam->normalize_cut(that->cam, *v, *that->v0, *that->v1);
+			v->cut = !that->cam->normalize(that->cam, v->v_r);
 			if (v->cut) {
 				that->debugger = 6;
 				v->n_w.set(v->n) ^ that->M;

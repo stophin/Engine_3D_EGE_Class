@@ -70,7 +70,7 @@ _PLATFORM int Camera3D_normalize_cut_(T* that, VObj& v, const VObj& v0, const VO
 		return -1;
 	}
 	else if (!EP_ISZERO(v.w - EP_MAX)) {
-		that->project(that, v.v_r);
+		//that->project(that, v.v_r);
 	}
 	return 0;
 }

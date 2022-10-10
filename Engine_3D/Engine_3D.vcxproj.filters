@@ -132,6 +132,15 @@
     <ClInclude Include="raytracing\bvh.h">
       <Filter>头文件\raytracing</Filter>
     </ClInclude>
+    <ClInclude Include="math3d\Camera3D_funcs.h">
+      <Filter>头文件\math3d</Filter>
+    </ClInclude>
+    <ClInclude Include="math3d\Light3D_funcs.h">
+      <Filter>头文件\math3d</Filter>
+    </ClInclude>
+    <ClInclude Include="math3d\Object3D_funcs.h">
+      <Filter>头文件\math3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
