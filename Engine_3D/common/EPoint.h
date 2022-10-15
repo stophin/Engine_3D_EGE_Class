@@ -45,7 +45,9 @@ typedef double	EMTYPE;
 typedef void	EPVOID;
 typedef bool	EBTYPE;
 
-#define USING_SIMD_INTRINSIC
+#ifndef _NANO_MINGW_
+//#define USING_SIMD_INTRINSIC
+#endif
 
 #ifdef USING_SIMD_INTRINSIC
 #include <xmmintrin.h>

@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.8)
 project(Engine3D)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+add_definitions(-D_CRT_RAND_S)
+
 set(EGE_PATH_EX C:/Users/stophin/Source/github/xege.git/branches/xege-471b90e638f760846a3d6192c3f05be98b12f348)
 set(EGE_PATH C:/Users/stophin/Source/ege19.01_all)
 set(DX_PATH "C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)")

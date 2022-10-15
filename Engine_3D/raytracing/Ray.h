@@ -169,25 +169,44 @@ _PLATFORM VertsMan * _VertsMan(VertsMan * that, int index, VertsPoolImp * poolIm
 
 /////////////////////////////////////////////////////////////
 #pragma optimize( "", off )
+#ifdef _NANO_MINGW_
+#include <random>
+inline errno_t rand_q(unsigned int* _RandomValue) {
+	std::random_device rd;
+	*_RandomValue = rd();
+	return 0;
+}
+#else
+#include <random>
+inline errno_t rand_q(unsigned int* _RandomValue) {
+	//return 0.87344;
+	// cannot use std::random_device when using SIMD intrinsic
+#ifdef USING_SIMD_INTRINSIC
+	return rand() / (RAND_MAX + 1.0);
+	//return rand_s(_RandomValue);
+#else
+	//return rand() / (RAND_MAX + 1.0);
+	return rand_s(_RandomValue);
+	std::random_device rd;
+	*_RandomValue = rd();
+	return 0;
+#endif
+}
+#endif
+#pragma optimize( "", on )
 _PLATFORM double random_double() {
 	// Returns a random real in [0,1).
-	//return rand() / (RAND_MAX + 1.0);
 	unsigned int seed ;
-	rand_s(&seed);
+	rand_q(&seed);
 	return (double)seed /
 		((double)UINT_MAX + 1);
 }
-#pragma optimize( "", on )
 
 _PLATFORM double random_double(double min, double max) {
 	// Returns a random real in [min,max).
 	return min + (max - min)*random_double();
 }
-_PLATFORM double clamp(double x, double min, double max) {
-	if (x < min) return min;
-	if (x > max) return max;
-	return x;
-}
+
 _PLATFORM void random(Vert3D& v) {
 	v.set(random_double(), random_double(), random_double());
 }
@@ -195,6 +214,7 @@ _PLATFORM void random(Vert3D& v) {
 _PLATFORM void random(Vert3D& v, double min, double max) {
 	v.set(random_double(min, max), random_double(min, max), random_double(min, max));
 }
+
 _PLATFORM void random_in_unit_sphere(Vert3D& v) {
 	while (true) {
 		random(v, -1, 1);
@@ -225,6 +245,12 @@ _PLATFORM void random_in_unit_disk(Vert3D& v) {
 _PLATFORM int random_int(int min, int max) {
 	// Returns a random integer in [min,max].
 	return static_cast<int>(random_double(min, max + 1));
+}
+
+_PLATFORM double clamp(double x, double min, double max) {
+	if (x < min) return min;
+	if (x > max) return max;
+	return x;
 }
 _PLATFORM void reflect(const Vert3D& v, const Vert3D& n, Vert3D& r) {
 	r.set(n);

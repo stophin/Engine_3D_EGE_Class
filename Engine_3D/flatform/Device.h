@@ -3396,24 +3396,46 @@ struct Device {
 				color->set(v0) + v1;
 			}
 			//accumulate all the stack colors and finish
-			do {
-				records = recStack.popLink(&recStack);
-				if (records) {
-					records->obj.color % (*color);
-					color = &records->obj.color;
-					//pointers
-					ray = &records->obj.ray;
-					color = &records->obj.color;
-					rec = &records->obj.rec;
-				}
-			} while (records);
+			records = recStack.prev(&recStack, recStack.link);
+			Records* last = records;
+			if (records) {
+				do {
+					if (records) {
+						long long  delta;
+						delta = (long long)records - (long long)recStack.recordsPool->pool;
+						if (delta % sizeof(Records) != 0) {
+							delta = 10;
+							printf("Error records: %lld  ", delta);
+						}
+						records->obj.color % (*color);
+						color = &records->obj.color;
+						//pointers
+						ray = &records->obj.ray;
+						color = &records->obj.color;
+						rec = &records->obj.rec;
+					}
+
+					records = recStack.prev(&recStack, records);
+				} while (records && records != last);
+			}
+			//do {
+			//	records = recStack.popLink(&recStack);
+			//	if (records) {
+			//		records->obj.color % (*color);
+			//		color = &records->obj.color;
+			//		//pointers
+			//		ray = &records->obj.ray;
+			//		color = &records->obj.color;
+			//		rec = &records->obj.rec;
+			//	}
+			//} while (records);
 			break;
 		}
 		if (color) {
 			cur_color.set(*color);
 		}
 		//clear stack, do not needed if stack balance is ensured by popList
-		//recStack.clearLink(&recStack);
+		recStack.clearLink(&recStack);
 	}
 	void ray_color(Ray& r, Vert3D& cur_color, int mdp, ObjMan* octs) {
 		if (mdp <= 0) {
