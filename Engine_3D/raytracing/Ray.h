@@ -168,10 +168,16 @@ _PLATFORM VertsMan * _VertsMan(VertsMan * that, int index, VertsPoolImp * poolIm
 }
 
 /////////////////////////////////////////////////////////////
+#pragma optimize( "", off )
 _PLATFORM double random_double() {
 	// Returns a random real in [0,1).
-	return rand() / (RAND_MAX + 1.0);
+	//return rand() / (RAND_MAX + 1.0);
+	unsigned int seed ;
+	rand_s(&seed);
+	return (double)seed /
+		((double)UINT_MAX + 1);
 }
+#pragma optimize( "", on )
 
 _PLATFORM double random_double(double min, double max) {
 	// Returns a random real in [min,max).

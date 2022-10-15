@@ -29,6 +29,7 @@ struct Camera3D {
 	Vert3D lookat; \
 	\
 	INT type;\
+	INT cam_type;\
 	\
 	Mat3D proj; \
 	Mat3D proj_1; \
@@ -95,7 +96,9 @@ _PLATFORM Camera3D* _Camera3D(Camera3D* that, EFTYPE width, EFTYPE height, EFTYP
 	that->proj.Init(); \
 	that->proj_1.Init();\
 	\
-	that->lookat.set(0, 0, -1, 1); 
+	that->lookat.set(0, 0, -1, 1); \
+	that->type = 0;\
+	that->cam_type = 0;\
 	/////////////////////////////////////////////
 	Camera3D_Creator(Camera3D, _)
 

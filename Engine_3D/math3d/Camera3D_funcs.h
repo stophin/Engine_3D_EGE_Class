@@ -1,5 +1,5 @@
 _PLATFORM void Camera3D_initialize_(T* that, int type) {
-	that->type = type;
+	that->cam_type = type;
 	if (type == 1) {
 		that->proj.mx.set(2 * that->znear / that->width, 0, -(that->rt.x + that->lb.x) / that->width, 0);
 		that->proj.my.set(0, 2 * that->znear / that->height, -(that->rt.y + that->lb.y) / that->height, 0);

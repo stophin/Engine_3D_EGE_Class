@@ -172,10 +172,13 @@
     <ClInclude Include="flatform\ELibrary.h" />
     <ClInclude Include="flatform\EPaint.h" />
     <ClInclude Include="math3d\Camera3D.h" />
+    <ClInclude Include="math3d\Camera3D_funcs.h" />
+    <ClInclude Include="math3d\Light3D_funcs.h" />
     <ClInclude Include="math3d\Manager3D.h" />
     <ClInclude Include="math3d\Mat3D.h" />
     <ClInclude Include="math3d\Matrix3D.h" />
     <ClInclude Include="math3d\Object3D.h" />
+    <ClInclude Include="math3d\Object3D_funcs.h" />
     <ClInclude Include="math3d\Texture.h" />
     <ClInclude Include="math3d\Texture3D.h" />
     <ClInclude Include="math3d\Trans3D.h" />
