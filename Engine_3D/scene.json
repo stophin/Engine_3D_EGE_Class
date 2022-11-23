@@ -74,6 +74,17 @@ texture	13
 	url	image/grass.jpg
 texture
 
+#object earth
+object earth	normal
+	step	50
+	vertext_type	1
+	scale	100	100	100
+	color	GREEN
+	texture	9	5
+object
+
+break
+
 #object floor
 object	group	normal	10
 	maxx	5	5

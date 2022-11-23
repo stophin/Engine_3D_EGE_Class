@@ -39,8 +39,8 @@ struct Object3D {
 	INT t_w; \
 	INT t_h; \
 	INT texture_type; \
-	INT u; \
-	INT v; \
+	EFTYPE u; \
+	EFTYPE v; \
 	\
 	INT backfaceculling;\
 	\
@@ -101,12 +101,12 @@ struct Object3D {
 	T& (*setTexture)(T* that, TextureLocalManager& tman, INT uID, INT t);\
 	T& (*setTextureD)(T* that, TextureManager& tman, INT uID, INT t);\
 	T& (*setBackfaceCulling)(T* that, INT bfc); \
-	T& (*setUV)(T* that, INT u, INT v); \
+	T& (*setUV)(T* that, EFTYPE u, EFTYPE v); \
 	T& (*setNormalType)(T* that, INT n); \
 	T& (*setVertexType)(T* that, INT type); \
 	DWORD (*getTextureActual)(T* that, EFTYPE x, EFTYPE y);\
 	DWORD (*getTexture)(T* that, EFTYPE x, EFTYPE y);\
-	DWORD (*getTextureColor)(T* that, Vert3D& n0, Vert3D& n1, Vert3D& n2, Vert3D& n3, VObj * v, Vert3D* v_n);\
+	DWORD (*getTextureColor)(T* that, Vert3D& n0, Vert3D& n1, Vert3D& n2, Vert3D& n3, VObj * v, VObj* v0, VObj* v1, Vert3D* v_n);\
 	T& (*setCenter)(T* that, EFTYPE x, EFTYPE y, EFTYPE z); \
 	T& (*setLineColor)(T* that, COLORREF line); \
 	T& (*setColor)(T* that, COLORREF color); \
@@ -357,7 +357,7 @@ _PLATFORM void Object3D_shaderVertexEx(Obj3D* that) {
 				v->v_s.set(v->x * that->cam->scale_w + that->cam->offset_w, v->y * that->cam->scale_h + that->cam->offset_h, v->z);
 
 				if (that->v0 && that->v1) {
-					v->backface = (that->center_r.set(v->v_c).negative() ^ v->n_r);
+					v->backface = that->backfaceculling > 0 ? (that->center_r.set(v->v_c).negative() ^ v->n_r) : 1;
 
 					v->n_1_z.set(that->v0->x - v->x, that->v0->y - v->y, that->v0->z - v->z);
 					that->center_r.set(that->v1->x - v->x, that->v1->y - v->y, that->v1->z - v->z);

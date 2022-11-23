@@ -464,6 +464,9 @@ struct VObj {
 	INT xs;
 	INT xe;
 
+	EFTYPE tu;
+	EFTYPE tv;
+
 	Mat3D R;
 	Mat3D R_r;
 
@@ -492,6 +495,9 @@ _PLATFORM VObj * _VObj(VObj * that, EFTYPE x, EFTYPE y, EFTYPE z){
 	that->n_1_z.init();
 	that->v_w.init();
 	that->n_w.init();
+
+	that->tu = 0;
+	that->tv = 0;
 
 	that->aabb[0].set(-EP_MAX, -EP_MAX, -EP_MAX, 1);
 	that->aabb[1].set(EP_MAX, EP_MAX, EP_MAX, 1);

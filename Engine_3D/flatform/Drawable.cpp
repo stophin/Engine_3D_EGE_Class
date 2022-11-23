@@ -32,6 +32,23 @@ BvhNodeMan bvhNodeMan;
 BvhNodePoolImp bvhNodePoolImp;
 ////////////////////////////////////////////////////
 
+struct Point3d {
+	double x;
+	double y;
+	double z;
+};
+#define PI 3.141592654
+
+Point3d getSpherePoint(double u, double v) {
+	Point3d temp;
+	const static double R = 1.0;
+	temp.x = R * sin(PI * v) * cos(2 * PI * u);
+	temp.z = R * sin(PI * v) * sin(2 * PI * u);
+	temp.y = R * cos(PI * v);
+
+	return temp;
+}
+////////////////////////////////////////////////////
 int DEBUG_MODE = DEBUG_GRADE_2;
 
 INT isresize = -1;
@@ -651,6 +668,9 @@ VOID Initialize()
 					INT revert = 0;
 					INT uniqueID = 0;
 
+					INT stepU = 0;
+					INT stepV = 0;
+
 					Vert3D verts[MAX_VERTS];
 					INT vertsIndex = 0;
 
@@ -934,6 +954,66 @@ VOID Initialize()
 									man.endGroup();
 								}
 							}
+							else if (!strcmp(parameters[0], "earth")) {
+								if (type == 2) {
+									obj = &man.addReflectionObject(parameter);
+								}
+								else if (type == 3) {
+									obj = &man.addTransparentObject(parameter);
+								}
+								else {
+									obj = &man.addObjectI((INT)parameter);
+								}
+								if (vertextType) {
+									obj->setVertexType(obj, vertextType);
+								}
+
+								double ustep = 1 / (double)stepU, vstep = 1 / (double)stepV;
+								double u = 0, v = 0;
+
+								//绘制中间四边形组
+								u = 0, v = 0;
+								for (int i = 0; i < stepV; i++) //纬度v
+								{
+									for (int j = 0; j < stepU; j++) //经度u
+									{
+										//if (i == 0 || i == vStepNum - 1) continue;
+
+										Point3d a = getSpherePoint(u, v);
+										Point3d b = getSpherePoint(u + ustep, v);
+										Point3d c = getSpherePoint(u + ustep, v + vstep);
+										Point3d d = getSpherePoint(u, v + vstep);
+
+										float u0 = 1 - 1.0f / stepU * j;
+										float u1 = 1 - 1.0f / stepU * (j + 1);
+										float v0 = 1 - 1.0f / stepV * i;
+										float v1 = 1 - 1.0f / stepV * (i + 1);
+
+										//glBegin(GL_TRIANGLE_FAN);
+										//glNormal3f(0.0f, 0.0f, 1.0f);
+										//glTexCoord2f(u0, v0); glVertex3d(a.x, a.y, a.z);
+										//glTexCoord2f(u1, v0); glVertex3d(b.x, b.y, b.z);
+										//glTexCoord2f(u1, v1); glVertex3d(c.x, c.y, c.z);
+										//glTexCoord2f(u0, v1); glVertex3d(d.x, d.y, d.z);
+										//glEnd();
+
+										obj->setUV(obj, u0, v0).addVert(obj, a.x, a.y, a.z)
+											.setUV(obj, u1, v0).addVert(obj, b.x, b.y, b.z)
+											.setUV(obj, u1, v1).addVert(obj, c.x, c.y, c.z)
+											.setUV(obj, u0, v0).addVert(obj, a.x, a.y, a.z)
+											.setUV(obj, u1, v1).addVert(obj, c.x, c.y, c.z)
+											.setUV(obj, u0, v1).addVert(obj, d.x, d.y, d.z);
+
+										u += ustep;
+									}
+									v += vstep;
+								}
+
+								objs[index++] = obj;
+								if (index > MAX_OBJS) {
+									index = MAX_OBJS - 1;
+								}
+							}
 							else if (!strcmp(parameters[0], "file")) {
 
 								FILE * _fp = NULL;
@@ -1192,6 +1272,14 @@ VOID Initialize()
 						else if (!strcmp(command, "backfaceculling")) {
 							if (attrCount > 0) {
 								backfaceculling = atof(attrs[0]);
+							}
+						}
+						else if (!strcmp(command, "step")) {
+							if (attrCount > 0) {
+								stepV = stepU = atof(attrs[0]);
+								if (attrCount > 1) {
+									stepV = atof(attrs[1]);
+								}
 							}
 						}
 						else if (!strcmp(command, "id")) {

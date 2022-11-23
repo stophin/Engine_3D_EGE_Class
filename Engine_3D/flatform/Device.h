@@ -1179,7 +1179,7 @@ struct Device {
 									n0.w = 1;
 									n1.set(n0)* cam->M_1;
 
-									*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, NULL);
+									*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, v0, v1, NULL);
 
 									//get interpolation normal vector from 3 points of a triangle
 									__x = j;
@@ -1478,7 +1478,7 @@ struct Device {
 													n0.w = 1;
 													n1.set(n0)* cam->M_1;
 
-													*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, NULL);
+													*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, v0, v1, NULL);
 
 													//get interpolation normal vector from 3 points of a triangle
 													__x = j;
@@ -2082,7 +2082,7 @@ struct Device {
 															n0.set(p);
 															n1.set(n0)* cam->M_1;
 															//get texture and normal vector at the same time
-															*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, &verts->v_n);
+															*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, v0, v1, &verts->v_n);
 
 															if (1 == obj->normal_type) {
 																//get line formula
@@ -2352,7 +2352,7 @@ struct Device {
 																		n0.set(p);
 																		n1.set(n0)* cam->M_1;
 																		//get texture and normal vector at the same time
-																		obj->getTextureColor(obj, n0, n1, n2, n3, v, NULL);
+																		obj->getTextureColor(obj, n0, n1, n2, n3, v, v0, v1, NULL);
 
 																		if (1 == obj->normal_type) {
 																			//get line formula
@@ -3232,7 +3232,7 @@ struct Device {
 				n0.set(p);
 				n1.set(n0)* cam->M_1;
 				//get texture and normal vector at the same time
-				*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, &verts->v_n);
+				*__image = obj->getTextureColor(obj, n0, n1, n2, n3, v, v0, v1, &verts->v_n);
 
 				if (1 == obj->normal_type) {
 					//get line formula

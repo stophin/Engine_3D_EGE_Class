@@ -2,7 +2,7 @@ _PLATFORM T& Object3D_setBackfaceCulling_(T* that, INT bfc) {
 	that->backfaceculling = bfc;
 	return *that;
 }
-_PLATFORM T& Object3D_setUV_(T* that, INT u, INT v) {
+_PLATFORM T& Object3D_setUV_(T* that, EFTYPE u, EFTYPE v) {
 	that->u = u;
 	that->v = v;
 	return *that;
@@ -80,7 +80,7 @@ _PLATFORM DWORD Object3D_getTexture_(T* that, EFTYPE x, EFTYPE y) {
 	}
 	return that->texture[_u + _v * that->t_w];
 }
-_PLATFORM DWORD Object3D_getTextureColor_(T* that, Vert3D& n0, Vert3D& n1, Vert3D& n2, Vert3D& n3, VObj* v, Vert3D* v_n) {
+_PLATFORM DWORD Object3D_getTextureColor_(T* that, Vert3D& n0, Vert3D& n1, Vert3D& n2, Vert3D& n3, VObj* v, VObj* v0, VObj* v1, Vert3D* v_n) {
 	if (NULL == that->cam) {
 		return that->color;
 	}
@@ -257,6 +257,22 @@ _PLATFORM DWORD Object3D_getTextureColor_(T* that, Vert3D& n0, Vert3D& n1, Vert3
 				}
 			}
 		}
+	}
+	else if (obj->texture_type == 5) {
+
+		n3.set(n1)* obj->M_1;
+
+		EFTYPE _a = ((n3.x - v->v.x) * (v1->v.y - v->v.y) - (n3.y - v->v.y) * (v1->v.x - v->v.x)) /
+			((v0->v.x - v->v.x) * (v1->v.y - v->v.y) - (v0->v.y - v->v.y) * (v1->v.x - v->v.x));
+		EFTYPE _b = ((n3.x - v->v.x) * (v0->v.y - v->v.y) - (n3.y - v->v.y) * (v0->v.x - v->v.x)) /
+			((v1->v.x - v->v.x) * (v0->v.y - v->v.y) - (v1->v.y - v->v.y) * (v0->v.x - v->v.x));
+		EFTYPE pu = v->tu + _a * (v0->tu - v->tu) + _b * (v1->tu - v->tu);
+		EFTYPE pv = v->tv + _a * (v0->tv - v->tv) + _b * (v1->tv - v->tv);
+
+		n2.x = pu;
+		n2.y = pv;
+
+		*__image = obj->getTexture(obj, n2.x, n2.y);
 	}
 	return color;
 }
@@ -441,6 +457,9 @@ _PLATFORM T& Object3D_addVertI_(T* that, VObj* v) {
 		v->n.negative();
 	}
 
+	v->tu = that->u;
+	v->tv = that->v;
+
 	return *that;
 }
 _PLATFORM T& Object3D_renderAABB_(T* that) {
@@ -578,7 +597,7 @@ _PLATFORM void Object3D_shaderVertex_(T* that) {
 				v->v_s.set(v->x * that->cam->scale_w + that->cam->offset_w, v->y * that->cam->scale_h + that->cam->offset_h, v->z);
 
 				if (that->v0 && that->v1) {
-					v->backface = (that->center_r.set(v->v_c).negative() ^ v->n_r);
+					v->backface = that->backfaceculling > 0 ? (that->center_r.set(v->v_c).negative() ^ v->n_r) : 1;
 
 					v->n_1_z.set(that->v0->x - v->x, that->v0->y - v->y, that->v0->z - v->z);
 					that->center_r.set(that->v1->x - v->x, that->v1->y - v->y, that->v1->z - v->z);
